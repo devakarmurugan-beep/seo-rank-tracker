@@ -76,9 +76,16 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
     const [allKwSearch, setAllKwSearch] = useState('')
     const [trackingKwSearch, setTrackingKwSearch] = useState('')
 
-    // ═══ MATRIX VIEW STATE ═══
-    const [trackingViewMode, setTrackingViewMode] = useState('standard') // 'standard' | 'matrix'
-    const [matrixInterval, setMatrixInterval] = useState(30) // 1, 7, 14, 30
+    // ═══ PAGINATION STATE ═══
+    const [itemsPerPage, setItemsPerPage] = useState(25)
+    const [allKwPage, setAllKwPage] = useState(1)
+    const [trackingKwPage, setTrackingKwPage] = useState(1)
+    const [locationsKwPage, setLocationsKwPage] = useState(1)
+
+    // Reset pages when filters change
+    useEffect(() => setAllKwPage(1), [posFilter, selectedCountryFilter, allKwSearch])
+    useEffect(() => setTrackingKwPage(1), [selectedCategoryFilter, trackingKwSearch])
+    useEffect(() => setLocationsKwPage(1), [selectedLocation])
 
     const catColors = [
         { color: '#2563EB', label: 'Blue' },
@@ -113,6 +120,57 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
         setCatDescription('')
         setCatColor('#2563EB')
         setCatSaveError('')
+    }
+
+    const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setItemsPerPage }) => {
+        const totalPages = Math.ceil(totalItems / itemsPerPage)
+        if (totalPages <= 1 && totalItems <= 25) return null
+
+        return (
+            <div className="px-4 py-3 flex items-center justify-between bg-white border-t border-[#E5E7EB]">
+                <div className="flex items-center gap-4">
+                    <span className="text-[12px] text-[#9CA3AF]">
+                        Showing <span className="font-medium text-[#4B5563]">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to{' '}
+                        <span className="font-medium text-[#4B5563]">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{' '}
+                        <span className="font-medium text-[#4B5563]">{totalItems}</span> keywords
+                    </span>
+                    <div className="flex items-center gap-2 border-l border-[#E5E7EB] pl-4">
+                        <span className="text-[11px] text-[#9CA3AF] uppercase font-bold tracking-wider">Per Page</span>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                                setItemsPerPage(Number(e.target.value))
+                                onPageChange(1)
+                            }}
+                            className="text-[12px] font-medium text-[#4B5563] bg-transparent focus:outline-none cursor-pointer"
+                        >
+                            {[25, 50, 100, 250].map(val => (
+                                <option key={val} value={val}>{val}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className="flex items-center gap-1">
+                    <button
+                        disabled={currentPage === 1}
+                        onClick={() => onPageChange(currentPage - 1)}
+                        className="p-1 px-2 text-[12px] font-medium text-[#4B5563] hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Prev
+                    </button>
+                    <div className="flex items-center px-2">
+                        <span className="text-[12px] text-[#9CA3AF]">Page <span className="font-medium text-[#4B5563]">{currentPage}</span> of {totalPages}</span>
+                    </div>
+                    <button
+                        disabled={currentPage === totalPages}
+                        onClick={() => onPageChange(currentPage + 1)}
+                        className="p-1 px-2 text-[12px] font-medium text-[#4B5563] hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+        )
     }
 
     const handleCreateCategory = () => {
@@ -645,7 +703,7 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                         <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
                                     </tr></thead>
                                     <tbody>
-                                        {filteredGSC.map((kw, i) => {
+                                        {filteredGSC.slice((allKwPage - 1) * itemsPerPage, allKwPage * itemsPerPage).map((kw, i) => {
                                             const kwStringId = kw.keyword;
                                             const intent = classifyIntent(kw.keyword)
                                             const iColor = intentColor(intent)
@@ -711,6 +769,13 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                         }
                                     </tbody>
                                 </table>
+                                <Pagination
+                                    totalItems={filteredGSC.length}
+                                    currentPage={allKwPage}
+                                    onPageChange={setAllKwPage}
+                                    itemsPerPage={itemsPerPage}
+                                    setItemsPerPage={setItemsPerPage}
+                                />
                             </div>
                         </>
                     )}
@@ -779,7 +844,7 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                             <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
                                         </tr></thead>
                                         <tbody>
-                                            {filteredTracking.map((kw, i) => {
+                                            {filteredTracking.slice((trackingKwPage - 1) * itemsPerPage, trackingKwPage * itemsPerPage).map((kw, i) => {
                                                 const intent = classifyIntent(kw.keyword)
                                                 const iColor = intentColor(intent)
                                                 return (
@@ -838,7 +903,7 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredTracking.map((kw, i) => (
+                                            {filteredTracking.slice((trackingKwPage - 1) * itemsPerPage, trackingKwPage * itemsPerPage).map((kw, i) => (
                                                 <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#FAFBFC]">
                                                     <td className={`sticky left-0 z-10 bg-white hover:bg-[#FAFBFC] px-4 ${cp ? 'py-1.5' : 'py-2'}`}>
                                                         <span className="text-[13px] font-medium text-[#111827] truncate block max-w-[280px]" title={kw.keyword}>{kw.keyword}</span>
@@ -870,7 +935,13 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                     </table>
                                 )}
                                 {trackingViewMode !== 'category' && (
-                                    <div className="px-4 py-3 border-t border-[#E5E7EB]"><span className="text-[11px] text-[#9CA3AF] font-normal tabular-nums">{filteredTracking.length} tracked keywords {selectedCategoryFilter ? `in ${selectedCategoryFilter}` : 'across all categories'}</span></div>
+                                    <Pagination
+                                        totalItems={filteredTracking.length}
+                                        currentPage={trackingKwPage}
+                                        onPageChange={setTrackingKwPage}
+                                        itemsPerPage={itemsPerPage}
+                                        setItemsPerPage={setItemsPerPage}
+                                    />
                                 )}
                                 {trackingViewMode === 'category' && (
                                     <div>
@@ -1060,7 +1131,7 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {selectedData.keywords.map((kw, i) => (
+                                                    {selectedData.keywords.slice((locationsKwPage - 1) * itemsPerPage, locationsKwPage * itemsPerPage).map((kw, i) => (
                                                         <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors">
                                                             <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium text-[#111827]`}>{kw.keyword}</td>
                                                             <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium`}>
@@ -1087,6 +1158,13 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                                     ))}
                                                 </tbody>
                                             </table>
+                                            <Pagination
+                                                totalItems={selectedData.keywords.length}
+                                                currentPage={locationsKwPage}
+                                                onPageChange={setLocationsKwPage}
+                                                itemsPerPage={itemsPerPage}
+                                                setItemsPerPage={setItemsPerPage}
+                                            />
                                         </div>
                                     </>
                                 )
