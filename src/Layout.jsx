@@ -344,14 +344,23 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                                     {hasProjects ? (
                                         <>
                                             <h3 className="text-[16px] font-semibold text-[#111827] mb-2">All Properties Tracked</h3>
-                                            <p className="text-[14px] text-[#64748B] max-w-xs mx-auto">You're already tracking all available properties from your Google account.</p>
+                                            <p className="text-[14px] text-[#64748B] max-w-xs mx-auto mb-6">You're already tracking all available properties from your Google account.</p>
                                         </>
                                     ) : (
                                         <>
                                             <h3 className="text-[16px] font-semibold text-[#111827] mb-2">No Properties Found</h3>
-                                            <p className="text-[14px] text-[#64748B] max-w-xs mx-auto">We couldn't find any verified websites in your connected Google account.</p>
+                                            <p className="text-[14px] text-[#64748B] max-w-xs mx-auto mb-6">We couldn't find any verified websites in your connected Google account.</p>
                                         </>
                                     )}
+                                    <button
+                                        onClick={() => {
+                                            setIsGscConnected(false);
+                                            setTimeout(handleConnectGSC, 100);
+                                        }}
+                                        className="text-[13px] font-medium text-[#2563EB] hover:text-[#1D4ED8] flex items-center gap-1 mx-auto"
+                                    >
+                                        <Key className="w-3 h-3" /> Re-authorize Google Permissions
+                                    </button>
                                 </div>
                             )}
                         </div>
