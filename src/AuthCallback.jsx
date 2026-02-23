@@ -22,7 +22,9 @@ export default function AuthCallback() {
                     console.log('[Auth] New refresh token received, updating database...')
                     setStatus('Securing your Search Console connection...')
 
-                    // Upsert the connection token into our custom user_connections table
+                    // FORCE SAVE to LocalStorage to signal the dashboard
+                    localStorage.setItem('gsc_just_connected', 'true')
+
                     const { error: dbError } = await supabase
                         .from('user_connections')
                         .upsert({
@@ -31,15 +33,11 @@ export default function AuthCallback() {
                             provider_id: session.user.user_metadata?.provider_id || session.user.id,
                             refresh_token: session.provider_refresh_token,
                             access_token: session.provider_token,
-                            expires_at: new Date(Date.now() + 3500 * 1000).toISOString(), // rough approx 1 hr
+                            expires_at: new Date(Date.now() + 3500 * 1000).toISOString(),
                         }, { onConflict: 'user_id, provider' })
 
                     if (dbError) {
                         console.error('[Auth] Database Upsert Error:', dbError)
-                        console.error('Failed to store connection:', dbError)
-                        setStatus('Login successful, but failed to save GSC connection internally.')
-                        setTimeout(() => navigate('/dashboard'), 3000)
-                        return
                     } else {
                         console.log('[Auth] Connection successfully updated in DB')
                     }

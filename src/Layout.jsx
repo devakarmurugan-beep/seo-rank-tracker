@@ -67,9 +67,11 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
     // Auto-open Add Project modal after OAuth callback redirect
     useEffect(() => {
         const params = new URLSearchParams(location.search)
-        if (params.get('openAddProject') === 'true' && isGscConnected) {
+        const justConnected = localStorage.getItem('gsc_just_connected') === 'true'
+
+        if ((params.get('openAddProject') === 'true' || justConnected) && isGscConnected) {
+            localStorage.removeItem('gsc_just_connected')
             loadAvailableSites()
-            // Clean up the URL
             window.history.replaceState({}, '', location.pathname)
         }
     }, [isGscConnected, location.search])
@@ -140,7 +142,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                     prompt: force ? 'consent' : 'select_account consent',
                     scope: 'https://www.googleapis.com/auth/webmasters.readonly openid email profile',
                 },
-                redirectTo: `${window.location.origin}/auth/callback?openAddProject=true`,
+                redirectTo: `${window.location.origin}/auth/callback`,
             }
         })
         if (error) console.error("Error connecting GSC:", error.message)
