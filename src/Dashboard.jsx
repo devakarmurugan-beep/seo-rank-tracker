@@ -176,9 +176,13 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                scopes: 'https://www.googleapis.com/auth/webmasters.readonly',
-                queryParams: { access_type: 'offline', prompt: 'consent' },
-                redirectTo: `${window.location.origin}/auth/callback`,
+                scopes: 'https://www.googleapis.com/auth/webmasters.readonly openid email profile',
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'select_account consent',
+                    scope: 'https://www.googleapis.com/auth/webmasters.readonly openid email profile',
+                },
+                redirectTo: `${window.location.origin}/auth/callback?openAddProject=true`,
             }
         })
         if (error) console.error("Error connecting GSC:", error.message)
