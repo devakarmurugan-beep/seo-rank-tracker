@@ -15,13 +15,22 @@ app.use(express.json())
 
 app.use('/api/payments', paymentsRoute)
 
-// Initialize Supabase Admin Client (Bypasses RLS for backend cron jobs)
-const supabaseAdmin = createClient(
-    process.env.VITE_SUPABASE_URL,
-    process.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-)
+// Initialize Supabase Admin Client lazily to prevent top-level crashes if env vars are missing
+let _supabaseAdmin;
+const getSupabaseAdmin = () => {
+    if (!_supabaseAdmin) {
+        if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+            throw new Error('Missing Supabase Environment Variables')
+        }
+        _supabaseAdmin = createClient(
+            process.env.VITE_SUPABASE_URL,
+            process.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+        )
+    }
+    return _supabaseAdmin
+}
 
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
     const missing = []
     if (!process.env.VITE_SUPABASE_URL) missing.push('VITE_SUPABASE_URL')
     if (!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) missing.push('VITE_SUPABASE_SERVICE_ROLE_KEY')
@@ -46,7 +55,7 @@ app.post('/api/user/available-sites', async (req, res) => {
     try {
         // Use .order('created_at', { ascending: false }).limit(1) instead of .single() 
         // to avoid crashes if multiple tokens exist for one user.
-        const { data: connections, error: connError } = await supabaseAdmin
+        const { data: connections, error: connError } = await getSupabaseAdmin()
             .from('user_connections')
             .select('refresh_token')
             .eq('user_id', userId)
@@ -114,7 +123,7 @@ app.post('/api/user/add-site', async (req, res) => {
 
     try {
         // Insert singular site with strict uniqueness manually enforced before the DB layer
-        const { data: existingSite } = await supabaseAdmin
+        const { data: existingSite } = await getSupabaseAdmin()
             .from('sites')
             .select('id')
             .eq('user_id', userId)
@@ -125,7 +134,7 @@ app.post('/api/user/add-site', async (req, res) => {
             return res.status(400).json({ error: 'Site already exists in your projects.' })
         }
 
-        const { data: newSite, error: insertError } = await supabaseAdmin
+        const { data: newSite, error: insertError } = await getSupabaseAdmin()
             .from('sites')
             .insert([{ user_id: userId, property_url, site_name }])
             .select('*')
@@ -147,8 +156,8 @@ app.post('/api/user/sync-site-data', async (req, res) => {
 
     try {
         // 1. Get Site & Connection Details
-        const { data: site } = await supabaseAdmin.from('sites').select('*').eq('id', siteId).single()
-        const { data: connection } = await supabaseAdmin.from('user_connections').select('refresh_token').eq('user_id', userId).eq('provider', 'google').single()
+        const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
+        const { data: connection } = await getSupabaseAdmin().from('user_connections').select('refresh_token').eq('user_id', userId).eq('provider', 'google').single()
 
         if (!site || !connection?.refresh_token) {
             return res.status(404).json({ error: 'Site or Google connection not found' })
@@ -156,7 +165,7 @@ app.post('/api/user/sync-site-data', async (req, res) => {
 
         // 2. Fetch GSC Data (History + Pages) — Last 16 months (approx 480 days)
         // 2. Fetch All Tracked Keywords for this site to prioritize history
-        const { data: currentTracked } = await supabaseAdmin
+        const { data: currentTracked } = await getSupabaseAdmin()
             .from('keywords')
             .select('keyword')
             .eq('site_id', siteId)
@@ -234,14 +243,14 @@ app.post('/api/user/sync-site-data', async (req, res) => {
         const keywordList = Object.values(keywordMap)
 
         if (keywordList.length > 0) {
-            const { error: kwError } = await supabaseAdmin
+            const { error: kwError } = await getSupabaseAdmin()
                 .from('keywords')
                 .upsert(keywordList, { onConflict: 'site_id, keyword' })
             if (kwError) throw kwError
         }
 
         // Fetch back IDs
-        const { data: savedKeywords } = await supabaseAdmin
+        const { data: savedKeywords } = await getSupabaseAdmin()
             .from('keywords')
             .select('id, keyword')
             .eq('site_id', siteId)
@@ -285,7 +294,7 @@ app.post('/api/user/sync-site-data', async (req, res) => {
             const CHUNK_SIZE = 500
             for (let i = 0; i < historyPayload.length; i += CHUNK_SIZE) {
                 const chunk = historyPayload.slice(i, i + CHUNK_SIZE)
-                const { error: histError } = await supabaseAdmin
+                const { error: histError } = await getSupabaseAdmin()
                     .from('keyword_history')
                     .upsert(chunk, { onConflict: 'keyword_id, date' })
                 if (histError) throw histError
@@ -295,7 +304,7 @@ app.post('/api/user/sync-site-data', async (req, res) => {
         // 5. Update Pages Metadata
         if (pages.length > 0) {
             const pagesPayload = pages.map(url => ({ site_id: siteId, page_url: url }))
-            await supabaseAdmin.from('pages').upsert(pagesPayload, { onConflict: 'site_id, page_url' })
+            await getSupabaseAdmin().from('pages').upsert(pagesPayload, { onConflict: 'site_id, page_url' })
         }
 
         res.json({
@@ -324,7 +333,7 @@ app.post('/api/keywords/track', async (req, res) => {
     try {
         if (overwrite) {
             // Clear current tracking for this site
-            await supabaseAdmin
+            await getSupabaseAdmin()
                 .from('keywords')
                 .update({ is_tracked: false })
                 .eq('site_id', siteId)
@@ -338,7 +347,7 @@ app.post('/api/keywords/track', async (req, res) => {
             is_tracked: true
         }))
 
-        const { data: keywordsWithIds, error } = await supabaseAdmin
+        const { data: keywordsWithIds, error } = await getSupabaseAdmin()
             .from('keywords')
             .upsert(records, { onConflict: 'site_id, keyword' })
             .select('id, keyword')
@@ -346,8 +355,8 @@ app.post('/api/keywords/track', async (req, res) => {
         if (error) throw error
 
         // 2. Fetch history for these specific keywords immediately so the user doesn't wait
-        const { data: site } = await supabaseAdmin.from('sites').select('*').eq('id', siteId).single()
-        const { data: connection } = await supabaseAdmin.from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
+        const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
+        const { data: connection } = await getSupabaseAdmin().from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
 
         if (connection?.refresh_token && site?.property_url) {
             const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
@@ -368,7 +377,7 @@ app.post('/api/keywords/track', async (req, res) => {
                             ctr: h.ctr,
                             page_url: h.page_url
                         }))
-                        await supabaseAdmin.from('keyword_history').upsert(historyPayload, { onConflict: 'keyword_id, date' })
+                        await getSupabaseAdmin().from('keyword_history').upsert(historyPayload, { onConflict: 'keyword_id, date' })
                     }
                 } catch (e) {
                     console.error(`Error fetching history for specific keyword ${kw.keyword}:`, e.message)
@@ -387,7 +396,7 @@ app.post('/api/keywords/untrack', async (req, res) => {
     const { siteId, keyword } = req.body
     if (!siteId || !keyword) return res.status(400).json({ error: 'Missing siteId or keyword' })
     try {
-        await supabaseAdmin.from('keywords')
+        await getSupabaseAdmin().from('keywords')
             .update({ is_tracked: false })
             .eq('site_id', siteId)
             .eq('keyword', keyword)
@@ -404,10 +413,10 @@ app.get('/api/gsc/locations', async (req, res) => {
 
     try {
         // ... previous code 1-2 ...
-        const { data: site } = await supabaseAdmin.from('sites').select('*').eq('id', siteId).single()
+        const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
         if (!site) return res.status(404).json({ error: 'Site not found' })
 
-        const { data: connection } = await supabaseAdmin.from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
+        const { data: connection } = await getSupabaseAdmin().from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
         if (!connection?.refresh_token) return res.status(404).json({ error: 'Google connection not found' })
 
         // 3. Fetch from GSC (Based on Date Range)
