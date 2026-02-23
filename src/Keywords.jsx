@@ -95,7 +95,7 @@ const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setIt
     )
 }
 
-export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData }) {
+export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData }) {
     const cp = compact
 
     // ═══ ADD KEYWORDS MODAL STATE ═══
@@ -126,6 +126,10 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
     // ═══ SEARCH STATE ═══
     const [allKwSearch, setAllKwSearch] = useState('')
     const [trackingKwSearch, setTrackingKwSearch] = useState('')
+
+    // ═══ MATRIX VIEW STATE ═══
+    const [trackingViewMode, setTrackingViewMode] = useState('standard') // 'standard' | 'matrix' | 'category'
+    const [matrixInterval, setMatrixInterval] = useState(30) // 1, 7, 14, 30
 
     // ═══ PAGINATION STATE ═══
     const [itemsPerPage, setItemsPerPage] = useState(25)
@@ -728,7 +732,7 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                                             </a>
                                                         ) : '-'}
                                                     </td>
-                                                    <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}><span className="font-mono-data text-[13px] font-semibold text-[#4B5563]">#{kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : kw.position}</span></td>
+                                                    <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}><span className="font-mono-data text-[13px] font-semibold text-[#4B5563]">#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span></td>
                                                     <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
                                                     <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
                                                     <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.ctr ? (kw.ctr * 100 > 1 ? kw.ctr.toFixed(2) + '%' : (kw.ctr * 100).toFixed(2) + '%') : '-'}</td>
@@ -866,7 +870,7 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                                                 </a>
                                                             ) : '-'}
                                                         </td>
-                                                        <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}><span className="font-mono-data text-[13px] font-semibold text-[#4B5563]">#{kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : kw.position}</span></td>
+                                                        <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}><span className="font-mono-data text-[13px] font-semibold text-[#4B5563]">#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span></td>
                                                         <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
                                                         <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
                                                         <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.ctr ? (kw.ctr * 100 > 1 ? kw.ctr.toFixed(2) + '%' : (kw.ctr * 100).toFixed(2) + '%') : '-'}</td>
@@ -1149,7 +1153,7 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                                                 ) : '-'}
                                                             </td>
                                                             <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
-                                                                <span className="font-mono-data text-[13px] font-bold" style={{ color: kw.position <= 3 ? '#059669' : '#111827' }}>#{parseFloat(kw.position.toFixed(1))}</span>
+                                                                <span className="font-mono-data text-[13px] font-bold" style={{ color: (kw.position || 0) <= 3 ? '#059669' : '#111827' }}>#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span>
                                                             </td>
                                                             <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
                                                             <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>

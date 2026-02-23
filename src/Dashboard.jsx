@@ -15,7 +15,7 @@ const distIcons = { trophy: Trophy, circleCheck: CircleCheck, triangleAlert: Tri
 
 import { supabase } from './lib/supabase'
 
-export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', isGscConnected, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData }) {
+export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData }) {
     const cp = compact
 
     // ═══ DATE RANGE FILTERING ═══
@@ -168,25 +168,7 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
         }
     })
 
-    const handleConnectGSC = async () => {
-        if (isGscConnected) {
-            window.dispatchEvent(new CustomEvent('open-add-project'))
-            return
-        }
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                scopes: 'openid email profile https://www.googleapis.com/auth/webmasters.readonly',
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'consent',
-                    include_granted_scopes: 'true'
-                },
-                redirectTo: `${window.location.origin}/auth/callback?openAddProject=true`,
-            }
-        })
-        if (error) console.error("Error connecting GSC:", error.message)
-    }
+    const distIcons = { trophy: Trophy, circleCheck: CircleCheck, triangleAlert: TriangleAlert, arrowDown: ArrowDown }
 
     if (!isGscConnected) {
         return (

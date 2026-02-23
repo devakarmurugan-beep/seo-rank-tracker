@@ -187,6 +187,26 @@ function App() {
     return null
   }
 
+  const handleConnectGSC = async () => {
+    if (isGscConnected) {
+      window.dispatchEvent(new CustomEvent('open-add-project'))
+      return
+    }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        scopes: 'openid email profile https://www.googleapis.com/auth/webmasters.readonly',
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+          include_granted_scopes: 'true'
+        },
+        redirectTo: `${window.location.origin}/auth/callback?openAddProject=true`,
+      }
+    })
+    if (error) console.error("Error connecting GSC:", error.message)
+  }
+
   // Wait for GSC check before rendering the main shell
   if (isCheckingGsc) {
     return <div className="flex h-screen items-center justify-center bg-[#F9FAFB] text-[#2563EB]"><div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div></div>
@@ -200,10 +220,11 @@ function App() {
 
       {/* Authenticated Application Layout */}
       <Route element={<ProtectedRoute><PricingGate><Layout c={compactMode} setCompactMode={setCompactMode} dateRange={dateRange} handleDateRange={handleDateRange} isGscConnected={isGscConnected} userSites={userSites} activeSite={activeSite} setActiveSite={setActiveSite} isLoadingData={isLoadingData} refreshSites={() => loadUserInfo()} syncSiteData={syncSiteData} /></PricingGate></ProtectedRoute>}>
-        <Route path="/dashboard" element={<Dashboard CustomTooltip={CustomTooltip} compact={compactMode} dateRange={dateRange} isGscConnected={isGscConnected} isLoadingData={isLoadingData} trackedKeywords={trackedKeywords} userSites={userSites} activeSite={activeSite} totalPages={totalPages} intentData={intentData} syncSiteData={() => syncSiteData(activeSite)} />} />
+        <Route path="/dashboard" element={<Dashboard CustomTooltip={CustomTooltip} compact={compactMode} dateRange={dateRange} isGscConnected={isGscConnected} handleConnectGSC={handleConnectGSC} isLoadingData={isLoadingData} trackedKeywords={trackedKeywords} userSites={userSites} activeSite={activeSite} totalPages={totalPages} intentData={intentData} syncSiteData={() => syncSiteData(activeSite)} />} />
         <Route path="/keywords" element={
           <Keywords
             kwTab={kwTab} handleKwTab={handleKwTab}
+            handleConnectGSC={handleConnectGSC}
             hasTrackingData={hasTrackingData} setHasTrackingData={setHasTrackingData}
             posFilter={posFilter} handlePosFilter={handlePosFilter}
             selectedCategoryFilter={selectedCategoryFilter}
