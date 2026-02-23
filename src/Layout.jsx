@@ -37,11 +37,12 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
         setIsAddProjectOpen(true)
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user?.id) {
-            const res = await fetchAvailableGSCSites(session.user.id)
+            console.log(`[Frontend] GSC Sites Response for ${session.user.id}:`, res)
             if (res.success) {
                 // Filter out sites that are already tracked
                 const trackedUrls = (userSites || []).map(s => s.property_url)
                 const filtered = (res.sites || []).filter(s => !trackedUrls.includes(s.property_url))
+                console.log(`[Frontend] Filtered sites: ${filtered.length}`)
                 setAvailableSites(filtered)
             } else {
                 console.error('Failed to fetch available sites:', res.error)
@@ -118,8 +119,8 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
         }
     }
 
-    const handleConnectGSC = async () => {
-        if (isGscConnected) {
+    const handleConnectGSC = async (force = false) => {
+        if (isGscConnected && !force) {
             loadAvailableSites()
             return
         }
@@ -130,10 +131,10 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                 scopes: 'https://www.googleapis.com/auth/webmasters.readonly openid email profile',
                 queryParams: {
                     access_type: 'offline',
-                    prompt: 'select_account consent',
+                    prompt: force ? 'consent' : 'select_account consent',
                     scope: 'https://www.googleapis.com/auth/webmasters.readonly openid email profile',
                 },
-                redirectTo: `${window.location.origin}/auth/callback?t=${new Date().getTime()}`,
+                redirectTo: `${window.location.origin}/auth/callback?openAddProject=true`,
             }
         })
         if (error) console.error("Error connecting GSC:", error.message)
@@ -354,10 +355,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                                         </>
                                     )}
                                     <button
-                                        onClick={() => {
-                                            setIsGscConnected(false);
-                                            setTimeout(handleConnectGSC, 100);
-                                        }}
+                                        onClick={() => handleConnectGSC(true)}
                                         className="text-[13px] font-medium text-[#2563EB] hover:text-[#1D4ED8] flex items-center gap-1 mx-auto cursor-pointer hover:underline relative z-[60]"
                                     >
                                         <Key className="w-3 h-3" /> Re-authorize Google Permissions
