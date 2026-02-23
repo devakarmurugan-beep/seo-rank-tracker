@@ -357,7 +357,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                                             setIsGscConnected(false);
                                             setTimeout(handleConnectGSC, 100);
                                         }}
-                                        className="text-[13px] font-medium text-[#2563EB] hover:text-[#1D4ED8] flex items-center gap-1 mx-auto"
+                                        className="text-[13px] font-medium text-[#2563EB] hover:text-[#1D4ED8] flex items-center gap-1 mx-auto cursor-pointer hover:underline relative z-[60]"
                                     >
                                         <Key className="w-3 h-3" /> Re-authorize Google Permissions
                                     </button>
