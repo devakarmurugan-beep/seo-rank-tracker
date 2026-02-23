@@ -133,6 +133,12 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
             return
         }
 
+        // If forcing re-auth, sign out first to ensure a completely fresh session & token capture
+        if (force) {
+            console.log('[Auth] Forcing re-authentication, clearing local session...')
+            await supabase.auth.signOut()
+        }
+
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {

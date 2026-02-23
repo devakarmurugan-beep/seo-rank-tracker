@@ -69,14 +69,22 @@ app.post('/api/user/available-sites', async (req, res) => {
 
         const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
         console.log(`[Backend] Fetching sites from Google for user: ${userId}`)
-        const sites = await fetchGSCSites(gscClient).catch(e => {
-            console.error('[Backend] Google API Call Failed:', e.message)
-            throw e
-        })
 
-        console.log(`[Backend] Raw sites count: ${sites?.length || 0}`)
+        // Debug: Try to see who we are authenticated as
+        try {
+            const userInfo = await gscClient.sites.list()
+            console.log(`[Backend] Google API Status: ${userInfo.status}, Sites Found: ${userInfo.data.siteEntry?.length || 0}`)
+        } catch (authErr) {
+            console.error('[Backend] Token Validation Failed:', authErr.message)
+            return res.status(401).json({
+                success: false,
+                error: 'TOKEN_INVALID',
+                message: 'Your Google permission has expired or was revoked. Please Re-authorize.'
+            })
+        }
 
-        // Simply map and return the available domains for the user to choose from
+        const sites = await fetchGSCSites(gscClient)
+
         const sitesPayload = (sites || []).map(site => {
             let name = site.siteUrl.replace('sc-domain:', '').replace('https://', '').replace('http://', '').replace(/[\/]+$/, '')
             return {
@@ -85,7 +93,7 @@ app.post('/api/user/available-sites', async (req, res) => {
             }
         })
 
-        console.log(`[Backend] Returning ${sitesPayload.length} formatted sites`)
+        console.log(`[Backend] Returning ${sitesPayload.length} formatted sites for ${userId}`)
         res.json({ success: true, count: sitesPayload.length, sites: sitesPayload })
 
     } catch (err) {
