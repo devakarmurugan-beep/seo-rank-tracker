@@ -16,8 +16,6 @@ const getPositionColor = (pos) => {
 const getBucketStyle = (bucket) => {
     if (bucket === 'Top 3') return 'bg-[#DCFCE7] text-[#14532D]'
     if (bucket === '4-10') return 'bg-[#D1FAE5] text-[#065F46]'
-    if (bucket === 'Top 3') return 'bg-[#DCFCE7] text-[#14532D]'
-    if (bucket === '4-10') return 'bg-[#D1FAE5] text-[#065F46]'
     if (bucket === '11-20') return 'bg-[#FEF3C7] text-[#92400E]'
     return 'bg-[#FEE2E2] text-[#991B1B]'
 }
@@ -617,18 +615,6 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             distribution: cat.distribution
         }
     })
-
-    const handleConnectGSC = async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                scopes: 'https://www.googleapis.com/auth/webmasters.readonly',
-                queryParams: { access_type: 'offline', prompt: 'consent' },
-                redirectTo: `${window.location.origin}/auth/callback`,
-            }
-        })
-        if (error) console.error("Error connecting GSC:", error.message)
-    }
 
     return (
         <div>
