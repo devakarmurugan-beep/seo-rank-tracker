@@ -44,6 +44,57 @@ const renderSparkline = (data, color) => {
     )
 }
 
+const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setItemsPerPage }) => {
+    const totalPages = Math.ceil(totalItems / itemsPerPage)
+    if (totalPages <= 1 && totalItems <= 25) return null
+
+    return (
+        <div className="px-4 py-3 flex items-center justify-between bg-white border-t border-[#E5E7EB]">
+            <div className="flex items-center gap-4">
+                <span className="text-[12px] text-[#9CA3AF]">
+                    Showing <span className="font-medium text-[#4B5563]">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to{' '}
+                    <span className="font-medium text-[#4B5563]">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{' '}
+                    <span className="font-medium text-[#4B5563]">{totalItems}</span> keywords
+                </span>
+                <div className="flex items-center gap-2 border-l border-[#E5E7EB] pl-4">
+                    <span className="text-[11px] text-[#9CA3AF] uppercase font-bold tracking-wider">Per Page</span>
+                    <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value))
+                            onPageChange(1)
+                        }}
+                        className="text-[12px] font-medium text-[#4B5563] bg-transparent focus:outline-none cursor-pointer"
+                    >
+                        {[25, 50, 100, 250].map(val => (
+                            <option key={val} value={val}>{val}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            <div className="flex items-center gap-1">
+                <button
+                    disabled={currentPage === 1}
+                    onClick={() => onPageChange(currentPage - 1)}
+                    className="p-1 px-2 text-[12px] font-medium text-[#4B5563] hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                    Prev
+                </button>
+                <div className="flex items-center px-2">
+                    <span className="text-[12px] text-[#9CA3AF]">Page <span className="font-medium text-[#4B5563]">{currentPage}</span> of {totalPages}</span>
+                </div>
+                <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => onPageChange(currentPage + 1)}
+                    className="p-1 px-2 text-[12px] font-medium text-[#4B5563] hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                    Next
+                </button>
+            </div>
+        </div>
+    )
+}
+
 export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData }) {
     const cp = compact
 
@@ -120,57 +171,6 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
         setCatDescription('')
         setCatColor('#2563EB')
         setCatSaveError('')
-    }
-
-    const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setItemsPerPage }) => {
-        const totalPages = Math.ceil(totalItems / itemsPerPage)
-        if (totalPages <= 1 && totalItems <= 25) return null
-
-        return (
-            <div className="px-4 py-3 flex items-center justify-between bg-white border-t border-[#E5E7EB]">
-                <div className="flex items-center gap-4">
-                    <span className="text-[12px] text-[#9CA3AF]">
-                        Showing <span className="font-medium text-[#4B5563]">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to{' '}
-                        <span className="font-medium text-[#4B5563]">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{' '}
-                        <span className="font-medium text-[#4B5563]">{totalItems}</span> keywords
-                    </span>
-                    <div className="flex items-center gap-2 border-l border-[#E5E7EB] pl-4">
-                        <span className="text-[11px] text-[#9CA3AF] uppercase font-bold tracking-wider">Per Page</span>
-                        <select
-                            value={itemsPerPage}
-                            onChange={(e) => {
-                                setItemsPerPage(Number(e.target.value))
-                                onPageChange(1)
-                            }}
-                            className="text-[12px] font-medium text-[#4B5563] bg-transparent focus:outline-none cursor-pointer"
-                        >
-                            {[25, 50, 100, 250].map(val => (
-                                <option key={val} value={val}>{val}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button
-                        disabled={currentPage === 1}
-                        onClick={() => onPageChange(currentPage - 1)}
-                        className="p-1 px-2 text-[12px] font-medium text-[#4B5563] hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                        Prev
-                    </button>
-                    <div className="flex items-center px-2">
-                        <span className="text-[12px] text-[#9CA3AF]">Page <span className="font-medium text-[#4B5563]">{currentPage}</span> of {totalPages}</span>
-                    </div>
-                    <button
-                        disabled={currentPage === totalPages}
-                        onClick={() => onPageChange(currentPage + 1)}
-                        className="p-1 px-2 text-[12px] font-medium text-[#4B5563] hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                        Next
-                    </button>
-                </div>
-            </div>
-        )
     }
 
     const handleCreateCategory = () => {
@@ -871,7 +871,7 @@ export default function Keywords({ kwTab, handleKwTab, hasTrackingData, setHasTr
                                                         <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
                                                         <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.ctr ? (kw.ctr * 100 > 1 ? kw.ctr.toFixed(2) + '%' : (kw.ctr * 100).toFixed(2) + '%') : '-'}</td>
                                                         <td className={`px-3 ${cp ? 'py-2' : 'py-3'}`}>
-                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium`} style={{ backgroundColor: `${iColor}15`, color: iColor }}>
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium`} style={{ backgroundColor: iColor.bg, color: iColor.text }}>
                                                                 {intent}
                                                             </span>
                                                         </td>
