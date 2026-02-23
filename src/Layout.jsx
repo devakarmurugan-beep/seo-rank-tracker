@@ -35,21 +35,27 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
     const loadAvailableSites = async () => {
         setIsFetchingSites(true)
         setIsAddProjectOpen(true)
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user?.id) {
-            console.log(`[Frontend] GSC Sites Response for ${session.user.id}:`, res)
-            if (res.success) {
-                // Filter out sites that are already tracked
-                const trackedUrls = (userSites || []).map(s => s.property_url)
-                const filtered = (res.sites || []).filter(s => !trackedUrls.includes(s.property_url))
-                console.log(`[Frontend] Filtered sites: ${filtered.length}`)
-                setAvailableSites(filtered)
-            } else {
-                console.error('Failed to fetch available sites:', res.error)
-                alert(`Error fetching properties: ${res.error || 'Unknown error'}`)
+        try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user?.id) {
+                const res = await fetchAvailableGSCSites(session.user.id)
+                console.log(`[Frontend] GSC Sites Response for ${session.user.id}:`, res)
+
+                if (res.success) {
+                    const trackedUrls = (userSites || []).map(s => s.property_url)
+                    const filtered = (res.sites || []).filter(s => !trackedUrls.includes(s.property_url))
+                    setAvailableSites(filtered)
+                } else {
+                    console.error('Failed to fetch available sites:', res.error)
+                    alert(`Error fetching properties: ${res.error || 'Unknown error'}`)
+                }
             }
+        } catch (err) {
+            console.error('Error in loadAvailableSites:', err)
+            alert('An unexpected error occurred while fetching properties.')
+        } finally {
+            setIsFetchingSites(false)
         }
-        setIsFetchingSites(false)
     }
 
     useEffect(() => {
