@@ -78,8 +78,13 @@ app.post('/api/user/available-sites', async (req, res) => {
         res.json({ success: true, count: sitesPayload.length, sites: sitesPayload })
 
     } catch (err) {
-        console.error('Error fetching GSC sites:', err)
-        res.status(500).json({ error: 'Failed to fetch sites from Google', details: err.message })
+        console.error('[Backend] Error fetching GSC sites:', err.message)
+        res.status(500).json({
+            success: false,
+            error: 'FETCH_FAILED',
+            details: err.message,
+            message: `Google API Error: ${err.message}. Please ensure you are a verified owner in Search Console.`
+        })
     }
 })
 

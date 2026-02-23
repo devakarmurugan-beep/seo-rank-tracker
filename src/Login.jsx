@@ -34,11 +34,11 @@ export default function Login() {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    scopes: 'https://www.googleapis.com/auth/webmasters.readonly openid email profile',
+                    scopes: 'openid email profile https://www.googleapis.com/auth/webmasters.readonly',
                     queryParams: {
                         access_type: 'offline',
-                        prompt: 'select_account consent',
-                        scope: 'https://www.googleapis.com/auth/webmasters.readonly openid email profile',
+                        prompt: 'consent',
+                        include_granted_scopes: 'true'
                     },
                     redirectTo: `${window.location.origin}/auth/callback?openAddProject=true`,
                 }
