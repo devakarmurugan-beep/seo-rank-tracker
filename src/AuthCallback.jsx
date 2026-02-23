@@ -19,7 +19,8 @@ export default function AuthCallback() {
 
                 // Check if this login included a new provider_refresh_token (i.e., from the Connect GSC flow)
                 if (session.provider_refresh_token && session.user) {
-                    setStatus('Account linked! Securing your Search Console connection...')
+                    console.log('[Auth] New refresh token received, updating database...')
+                    setStatus('Securing your Search Console connection...')
 
                     // Upsert the connection token into our custom user_connections table
                     const { error: dbError } = await supabase
@@ -34,11 +35,16 @@ export default function AuthCallback() {
                         }, { onConflict: 'user_id, provider' })
 
                     if (dbError) {
+                        console.error('[Auth] Database Upsert Error:', dbError)
                         console.error('Failed to store connection:', dbError)
                         setStatus('Login successful, but failed to save GSC connection internally.')
                         setTimeout(() => navigate('/dashboard'), 3000)
                         return
+                    } else {
+                        console.log('[Auth] Connection successfully updated in DB')
                     }
+                } else if (session.user) {
+                    console.log('[Auth] No new refresh token in this session redirect.')
                 }
 
                 setStatus('Success! Redirecting to your dashboard...')

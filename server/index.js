@@ -33,16 +33,22 @@ app.post('/api/user/available-sites', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'Missing userId' })
 
     try {
-        const { data: connection } = await supabaseAdmin
+        // Use .order('created_at', { ascending: false }).limit(1) instead of .single() 
+        // to avoid crashes if multiple tokens exist for one user.
+        const { data: connections, error: connError } = await supabaseAdmin
             .from('user_connections')
             .select('refresh_token')
             .eq('user_id', userId)
             .eq('provider', 'google')
-            .single()
+            .order('created_at', { ascending: false })
+            .limit(1)
 
-        if (!connection?.refresh_token) {
-            return res.status(404).json({ error: 'Google connection not found' })
+        if (connError || !connections || connections.length === 0) {
+            console.log(`[Backend] No Google connection found for user ${userId}`)
+            return res.json({ success: true, count: 0, sites: [], message: 'No connection found' })
         }
+
+        const connection = connections[0]
 
         const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
         console.log(`[Backend] Fetching sites from Google for user: ${userId}`)
