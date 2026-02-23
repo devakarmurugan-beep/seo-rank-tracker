@@ -126,10 +126,10 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                scopes: 'https://www.googleapis.com/auth/webmasters.readonly',
+                scopes: 'openid email profile https://www.googleapis.com/auth/webmasters.readonly',
                 queryParams: {
                     access_type: 'offline',
-                    prompt: 'consent',
+                    prompt: 'select_account consent',
                 },
                 redirectTo: `${window.location.origin}/auth/callback`,
             }
