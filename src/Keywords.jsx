@@ -43,8 +43,9 @@ const renderSparkline = (data, color) => {
 }
 
 const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setItemsPerPage }) => {
-    const totalPages = Math.ceil(totalItems / itemsPerPage)
-    if (totalPages <= 1 && totalItems <= 25) return null
+    const safeTotalItems = totalItems || 0
+    const totalPages = Math.ceil(safeTotalItems / itemsPerPage)
+    if (totalPages <= 1 && safeTotalItems <= 25) return null
 
     return (
         <div className="px-4 py-3 flex items-center justify-between bg-white border-t border-[#E5E7EB]">
@@ -95,6 +96,16 @@ const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setIt
 
 export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData }) {
     const cp = compact
+
+    if (isLoadingData) {
+        return (
+            <div className="flex flex-col items-center justify-center py-24">
+                <Loader2 className="w-10 h-10 text-[#2563EB] animate-spin mb-4" />
+                <h3 className="text-[18px] font-medium text-[#111827]">Loading your keywords...</h3>
+                <p className="text-[13px] text-[#6B7280]">Connecting to Search Console and syncing positions</p>
+            </div>
+        )
+    }
 
     // ═══ ADD KEYWORDS MODAL STATE ═══
     const [showAddModal, setShowAddModal] = useState(false)
@@ -156,7 +167,10 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         const siteKey = activeSite?.id || 'default'
         const stored = localStorage.getItem(`categories_${siteKey}`)
         if (stored) {
-            try { setCategories(JSON.parse(stored)) } catch { }
+            try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) setCategories(parsed);
+            } catch (e) { console.error("Error parsing categories:", e) }
         }
     }, [activeSite?.id])
 
@@ -218,7 +232,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     }
 
     // Merge stored categories with categoryOptions for the Add Keywords dropdown
-    const allCategoryOptions = [...new Set([...categoryOptions, ...categories.map(c => c.name)])]
+    const allCategoryOptions = [...new Set([...categoryOptions, ...(categories || []).map(c => c?.name).filter(Boolean)])]
 
     // ═══ CLIENT-SIDE INTENT RE-CLASSIFICATION ═══
     // Re-classify intent on the fly using domain-derived brand variations
@@ -509,10 +523,10 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
 
     // For this build, we map all keywords into both tabs just for UI demonstration of the live data integration.
     // In production, the backend sync would differentiate tracked (manually added) vs discovered keywords.
-    let baseAllKeywords = trackedKeywords;
+    let baseAllKeywords = trackedKeywords || [];
     if (selectedCountryFilter !== 'All') {
-        const countryData = locations.find(l => l.countryCode === selectedCountryFilter)
-        if (countryData) {
+        const countryData = (locations || []).find(l => l?.countryCode === selectedCountryFilter)
+        if (countryData && countryData.keywords) {
             baseAllKeywords = countryData.keywords;
         } else {
             baseAllKeywords = [];
@@ -531,8 +545,8 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         filteredGSC = filteredGSC.filter(kw => kw.keyword.toLowerCase().includes(q))
     }
 
-    const trackingOnly = trackedKeywords.filter(kw => kw.is_tracked)
-    let filteredTracking = selectedCategoryFilter ? trackingOnly.filter((kw) => kw.category === selectedCategoryFilter) : trackingOnly
+    const trackingOnly = (trackedKeywords || []).filter(kw => kw?.is_tracked)
+    let filteredTracking = selectedCategoryFilter ? trackingOnly.filter((kw) => kw?.category === selectedCategoryFilter) : trackingOnly
 
     if (trackingKwSearch.trim()) {
         const q = trackingKwSearch.toLowerCase()
@@ -602,17 +616,17 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     }, {})
 
     // Format the reduced map into the array format needed for rendering
-    const categoryCardsDynamic = Object.values(categoryMap).map(cat => {
+    const categoryCardsDynamic = Object.values(categoryMap || {}).map(cat => {
         const currentAvg = cat.rankedCount > 0 ? (cat.totalPos / cat.rankedCount) : 0
-        const pastAvg = cat.historyPos.length > 0 ? (cat.historyPos.reduce((a, b) => a + b, 0) / cat.historyPos.length) : currentAvg
+        const pastAvg = (cat.historyPos && cat.historyPos.length > 0) ? (cat.historyPos.reduce((a, b) => a + (b || 0), 0) / cat.historyPos.length) : currentAvg
 
         return {
-            name: cat.name,
-            count: cat.count,
-            avgPos: currentAvg > 0 ? currentAvg.toFixed(1) : '-',
-            change: currentAvg > 0 ? (pastAvg - currentAvg).toFixed(1) : 0, // positive change means rank improved (lower number)
-            impressions: cat.impressions >= 1000 ? (cat.impressions / 1000).toFixed(1) + 'K' : cat.impressions,
-            distribution: cat.distribution
+            name: cat.name || 'Uncategorized',
+            count: cat.count || 0,
+            avgPos: currentAvg > 0 ? (typeof currentAvg === 'number' ? currentAvg.toFixed(1) : currentAvg) : '-',
+            change: currentAvg > 0 ? (typeof pastAvg === 'number' && typeof currentAvg === 'number' ? (pastAvg - currentAvg).toFixed(1) : 0) : 0,
+            impressions: (cat.impressions || 0) >= 1000 ? ((cat.impressions || 0) / 1000).toFixed(1) + 'K' : (cat.impressions || 0),
+            distribution: cat.distribution || [0, 0, 0, 0]
         }
     })
 
@@ -668,8 +682,9 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                         >
                                             <option value="All">All Countries</option>
                                             {meaningfulLocations.map(loc => {
-                                                const cInfo = gscCountryMap[loc.countryCode] || { name: loc.countryCode.toUpperCase(), emoji: '🌍' }
-                                                return <option key={loc.countryCode} value={loc.countryCode}>{cInfo.name}</option>
+                                                const countryCode = loc?.countryCode || 'Unknown';
+                                                const cInfo = gscCountryMap[countryCode] || { name: countryCode.toUpperCase(), emoji: '🌍' }
+                                                return <option key={countryCode} value={countryCode}>{cInfo.name}</option>
                                             })}
                                         </select>
                                         <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF] pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
@@ -760,7 +775,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     </tbody>
                                 </table>
                                 <Pagination
-                                    totalItems={filteredGSC.length}
+                                    totalItems={filteredGSC?.length || 0}
                                     currentPage={allKwPage}
                                     onPageChange={setAllKwPage}
                                     itemsPerPage={itemsPerPage}
@@ -926,7 +941,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                 )}
                                 {trackingViewMode !== 'category' && (
                                     <Pagination
-                                        totalItems={filteredTracking.length}
+                                        totalItems={filteredTracking?.length || 0}
                                         currentPage={trackingKwPage}
                                         onPageChange={setTrackingKwPage}
                                         itemsPerPage={itemsPerPage}
@@ -1059,7 +1074,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                                 <div className="grid grid-cols-2 gap-4 mb-5 flex-1">
                                                     <div>
                                                         <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Keywords</p>
-                                                        <p className="text-[20px] font-bold text-[#111827] tabular-nums tracking-tight">{loc.keywordCount.toLocaleString()}</p>
+                                                        <p className="text-[20px] font-bold text-[#111827] tabular-nums tracking-tight">{(loc.keywordCount || 0).toLocaleString()}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Avg Pos.</p>
@@ -1121,7 +1136,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {selectedData.keywords.slice((locationsKwPage - 1) * itemsPerPage, locationsKwPage * itemsPerPage).map((kw, i) => (
+                                                    {(selectedData?.keywords || []).slice((locationsKwPage - 1) * itemsPerPage, locationsKwPage * itemsPerPage).map((kw, i) => (
                                                         <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors">
                                                             <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium text-[#111827]`}>{kw.keyword}</td>
                                                             <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium`}>
@@ -1149,7 +1164,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                                 </tbody>
                                             </table>
                                             <Pagination
-                                                totalItems={selectedData.keywords.length}
+                                                totalItems={selectedData?.keywords?.length || 0}
                                                 currentPage={locationsKwPage}
                                                 onPageChange={setLocationsKwPage}
                                                 itemsPerPage={itemsPerPage}
