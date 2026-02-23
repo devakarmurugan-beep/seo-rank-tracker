@@ -31,7 +31,9 @@ export async function checkGSCConnection() {
 export async function fetchAvailableGSCSites(userId) {
     try {
         const apiUrl = import.meta.env.VITE_API_URL || ''
-        const response = await fetch(`${apiUrl}/api/user/available-sites`, {
+        // Add a timestamp to the redirect URL to force a fresh session
+        const timestamp = new Date().getTime();
+        const response = await fetch(`${apiUrl}/api/user/available-sites?t=${timestamp}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId })

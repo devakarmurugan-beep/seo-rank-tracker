@@ -132,7 +132,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                     access_type: 'offline',
                     prompt: 'select_account consent',
                 },
-                redirectTo: `${window.location.origin}/auth/callback`,
+                redirectTo: `${window.location.origin}/auth/callback?t=${new Date().getTime()}`,
             }
         })
         if (error) console.error("Error connecting GSC:", error.message)

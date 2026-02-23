@@ -45,7 +45,13 @@ app.post('/api/user/available-sites', async (req, res) => {
         }
 
         const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
-        const sites = await fetchGSCSites(gscClient)
+        console.log(`[Backend] Fetching sites from Google for user: ${userId}`)
+        const sites = await fetchGSCSites(gscClient).catch(e => {
+            console.error('[Backend] Google API Call Failed:', e.message)
+            throw e
+        })
+
+        console.log(`[Backend] Raw sites count: ${sites?.length || 0}`)
 
         // Simply map and return the available domains for the user to choose from
         const sitesPayload = (sites || []).map(site => {
@@ -56,12 +62,12 @@ app.post('/api/user/available-sites', async (req, res) => {
             }
         })
 
-        console.log(`[Backend] Fetched ${sitesPayload.length} GSC sites for user ${userId}`)
+        console.log(`[Backend] Returning ${sitesPayload.length} formatted sites`)
         res.json({ success: true, count: sitesPayload.length, sites: sitesPayload })
 
     } catch (err) {
-        console.error('Error fetching GSC sites:', err.message)
-        res.status(500).json({ error: 'Failed to fetch sites', details: err.message })
+        console.error('Error fetching GSC sites:', err)
+        res.status(500).json({ error: 'Failed to fetch sites from Google', details: err.message })
     }
 })
 
