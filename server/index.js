@@ -56,6 +56,7 @@ app.post('/api/user/available-sites', async (req, res) => {
             }
         })
 
+        console.log(`[Backend] Fetched ${sitesPayload.length} GSC sites for user ${userId}`)
         res.json({ success: true, count: sitesPayload.length, sites: sitesPayload })
 
     } catch (err) {

@@ -45,6 +45,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                 setAvailableSites(filtered)
             } else {
                 console.error('Failed to fetch available sites:', res.error)
+                alert(`Error fetching properties: ${res.error || 'Unknown error'}`)
             }
         }
         setIsFetchingSites(false)

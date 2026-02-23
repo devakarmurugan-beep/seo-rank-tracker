@@ -30,7 +30,7 @@ export async function checkGSCConnection() {
  */
 export async function fetchAvailableGSCSites(userId) {
     try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+        const apiUrl = import.meta.env.VITE_API_URL || ''
         const response = await fetch(`${apiUrl}/api/user/available-sites`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -49,7 +49,7 @@ export async function fetchAvailableGSCSites(userId) {
  */
 export async function addProjectSite(userId, property_url, site_name) {
     try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+        const apiUrl = import.meta.env.VITE_API_URL || ''
         const response = await fetch(`${apiUrl}/api/user/add-site`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -81,7 +81,7 @@ export async function triggerInitialGSCDataSync() {
  */
 export async function createSubscription(userId, userEmail, planId) {
     try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+        const apiUrl = import.meta.env.VITE_API_URL || ''
         const response = await fetch(`${apiUrl}/api/payments/create-checkout`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
