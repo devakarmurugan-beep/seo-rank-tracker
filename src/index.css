@@ -1,0 +1,265 @@
+@import "tailwindcss";
+
+/* ══════════════════════════════════════════════════════
+   DESIGN TOKENS — Professional SEO SaaS System
+   ══════════════════════════════════════════════════════ */
+:root {
+    /* ── Fonts ── */
+    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+    /* ── Brand ── */
+    --primary: #2563EB;
+    --primary-hover: #1D4ED8;
+    --primary-light: #EFF6FF;
+    --primary-muted: #DBEAFE;
+
+    /* ── Semantic: Success ── */
+    --success: #059669;
+    --success-light: #ECFDF5;
+    --success-text: #065F46;
+
+    /* ── Semantic: Warning ── */
+    --warning: #D97706;
+    --warning-light: #FFFBEB;
+    --warning-text: #92400E;
+
+    /* ── Semantic: Danger ── */
+    --danger: #DC2626;
+    --danger-light: #FEF2F2;
+    --danger-text: #991B1B;
+
+    /* ── Semantic: Info ── */
+    --info: #0284C7;
+    --info-light: #F0F9FF;
+
+    /* ── Text ── */
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #9CA3AF;
+
+    /* ── Backgrounds ── */
+    --bg-app: #F9FAFB;
+    --bg-card: #FFFFFF;
+    --bg-sidebar: #0F172A;
+    --bg-hover: #F9FAFB;
+    --bg-subtle: #F3F4F6;
+
+    /* ── Borders ── */
+    --border: #E5E7EB;
+    --border-hover: #D1D5DB;
+
+    /* ── Elevation System (3 levels) ── */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+
+    /* ── Rank Buckets ── */
+    --rank-1-3-bg: #DCFCE7;
+    --rank-1-3-text: #14532D;
+    --rank-1-3-color: #059669;
+    --rank-4-10-bg: #D1FAE5;
+    --rank-4-10-text: #065F46;
+    --rank-4-10-color: #0284C7;
+    --rank-11-20-bg: #FEF3C7;
+    --rank-11-20-text: #92400E;
+    --rank-11-20-color: #D97706;
+    --rank-21-50-bg: #FFEDD5;
+    --rank-21-50-text: #9A3412;
+    --rank-21-50-color: #EA580C;
+    --rank-50-bg: #FEE2E2;
+    --rank-50-text: #991B1B;
+    --rank-50-color: #DC2626;
+
+    /* ── Charts ── */
+    --chart-blue: #2563EB;
+    --chart-teal: #0D9488;
+    --chart-violet: #7C3AED;
+    --chart-amber: #D97706;
+    --chart-emerald: #059669;
+    --chart-red: #DC2626;
+
+    /* ── Spacing scale (4px base) ── */
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 20px;
+    --sp-6: 24px;
+    --sp-8: 32px;
+    --sp-10: 40px;
+    --sp-12: 48px;
+
+    /* ── Transitions ── */
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+}
+
+/* ── Dark Mode Tokens (future-proofing, not active) ── */
+@media (prefers-color-scheme: dark) {
+    :root.dark-mode {
+        --text-primary: #F9FAFB;
+        --text-secondary: #D1D5DB;
+        --text-muted: #6B7280;
+        --bg-app: #111827;
+        --bg-card: #1F2937;
+        --bg-sidebar: #030712;
+        --bg-hover: #1F2937;
+        --bg-subtle: #374151;
+        --border: #374151;
+        --border-hover: #4B5563;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+        --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+}
+
+/* ══════════════════════════════════════════════════════
+   GLOBAL STYLES
+   ══════════════════════════════════════════════════════ */
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Global Transition — all interactive elements ── */
+button,
+a,
+input,
+select,
+[role="button"] {
+    transition: all var(--duration-fast) var(--ease);
+}
+
+/* ── Focus Ring ── */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* ── Button Press Feedback ── */
+button:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+/* ══════════════════════════════════════════════════════
+   TYPOGRAPHY UTILITIES
+   ══════════════════════════════════════════════════════ */
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.font-mono-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.metric-value {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    line-height: 1;
+}
+
+.table-num {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+/* ══════════════════════════════════════════════════════
+   COMPACT MODE
+   ══════════════════════════════════════════════════════ */
+.compact .card-padding {
+    padding: 12px 16px;
+}
+
+.compact table th {
+    padding: 8px 12px;
+    font-size: 10px;
+}
+
+.compact table td {
+    padding: 6px 12px;
+}
+
+.compact .metric-value {
+    font-size: 28px !important;
+}
+
+.compact .section-gap {
+    margin-bottom: 16px;
+}
+
+.compact .kpi-label {
+    font-size: 10px;
+}
+
+.compact .section-title {
+    font-size: 13px;
+}
+
+/* ══════════════════════════════════════════════════════
+   TABLE ROW INTERACTIONS
+   ══════════════════════════════════════════════════════ */
+tbody tr {
+    transition: background-color var(--duration-fast) var(--ease),
+        box-shadow var(--duration-fast) var(--ease);
+}
+
+tbody tr:hover {
+    background-color: var(--bg-hover);
+}
+
+tbody tr:hover td:first-child {
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* ══════════════════════════════════════════════════════
+   LOADING SKELETON
+   ══════════════════════════════════════════════════════ */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, var(--bg-subtle) 25%, #E5E7EB 50%, var(--bg-subtle) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px;
+}
+
+/* ══════════════════════════════════════════════════════
+   SCROLLBAR
+   ══════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-hover);
+}
