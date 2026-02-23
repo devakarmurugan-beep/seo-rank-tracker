@@ -1,3 +1,4 @@
+// Version: 1.1.2 - GSC Fix Deployment
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
