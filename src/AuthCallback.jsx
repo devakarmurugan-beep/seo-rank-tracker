@@ -22,7 +22,6 @@ export default function AuthCallback() {
                     console.log('[Auth] New refresh token received, updating database...')
                     setStatus('Securing your Search Console connection...')
 
-                    // FORCE SAVE to LocalStorage to signal the dashboard
                     localStorage.setItem('gsc_just_connected', 'true')
 
                     const { error: dbError } = await supabase
@@ -38,23 +37,26 @@ export default function AuthCallback() {
 
                     if (dbError) {
                         console.error('[Auth] Database Upsert Error:', dbError)
+                        setStatus('Critical: Failed to save the secure connection to our database.')
                     } else {
                         console.log('[Auth] Connection successfully updated in DB')
                     }
                 } else if (session.user) {
-                    console.log('[Auth] No new refresh token in this session redirect.')
+                    console.warn('[Auth] No refresh token received. If you were trying to connect GSC, this is the error.')
+                    // Check if it's a re-auth flow and warn the user
+                    if (localStorage.getItem('gsc_just_connected') === 'true' || window.location.search.includes('openAddProject')) {
+                        setStatus('Alert: Google did not send back the required "Secret Key". Please un-check and re-check the permission box.')
+                    }
                 }
 
                 setStatus('Success! Redirecting to your dashboard...')
-                // If we stored a provider_refresh_token, this was a GSC connection flow
-                // Auto-open the Add Project modal on redirect
-                const redirectPath = session.provider_refresh_token ? '/dashboard?openAddProject=true' : '/dashboard'
-                setTimeout(() => navigate(redirectPath), 1500)
+                const redirectPath = '/dashboard'
+                setTimeout(() => navigate(redirectPath), 2000)
 
             } catch (err) {
                 console.error('OAuth Callback Error:', err)
-                setStatus('Authentication failed. Returning to login...')
-                setTimeout(() => navigate('/login'), 3000)
+                setStatus(`Authentication failed: ${err.message}. Please try logging out and back in.`)
+                setTimeout(() => navigate('/login'), 5000)
             }
         }
 
