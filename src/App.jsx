@@ -100,17 +100,27 @@ function App() {
     return []
   }
 
+  const refreshGSCConnection = async () => {
+    try {
+      const { checkGSCConnection } = await import('./lib/api')
+      const gscStatus = await checkGSCConnection()
+      setIsGscConnected(gscStatus.connected)
+      return gscStatus.connected
+    } catch (error) {
+      console.error("Error checking GSC status:", error)
+      return false
+    }
+  }
+
   useEffect(() => {
     async function initializeAppData() {
       setIsCheckingGsc(true)
       setIsLoadingData(true)
 
       try {
-        const { checkGSCConnection } = await import('./lib/api')
-        const gscStatus = await checkGSCConnection()
-        setIsGscConnected(gscStatus.connected)
+        const connected = await refreshGSCConnection()
 
-        if (gscStatus.connected) {
+        if (connected) {
           const sites = await loadUserInfo()
           if (sites.length > 0) {
             const savedSiteId = localStorage.getItem('activeSiteId')
@@ -129,6 +139,13 @@ function App() {
     }
     initializeAppData()
   }, [])
+
+  // Fresh check on every location change to handle OAuth redirects properly
+  useEffect(() => {
+    if (location.pathname === '/dashboard') {
+      refreshGSCConnection()
+    }
+  }, [location.pathname])
 
   // Re-load data when active site changes
   useEffect(() => {
