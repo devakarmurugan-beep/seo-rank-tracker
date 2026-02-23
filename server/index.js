@@ -22,7 +22,18 @@ const supabaseAdmin = createClient(
 )
 
 app.get('/health', (req, res) => {
-    res.json({ status: 'Platform API is active', time: new Date().toISOString() })
+    const missing = []
+    if (!process.env.VITE_SUPABASE_URL) missing.push('VITE_SUPABASE_URL')
+    if (!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) missing.push('VITE_SUPABASE_SERVICE_ROLE_KEY')
+    if (!process.env.GCP_CLIENT_ID) missing.push('GCP_CLIENT_ID')
+    if (!process.env.GCP_CLIENT_SECRET) missing.push('GCP_CLIENT_SECRET')
+
+    res.json({
+        status: 'Platform API is active',
+        time: new Date().toISOString(),
+        config: missing.length === 0 ? 'COMPLETE' : 'INCOMPLETE',
+        missing_vars: missing
+    })
 })
 
 // === Core Data Fetcher Endpoints ===
