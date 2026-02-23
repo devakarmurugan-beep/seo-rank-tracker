@@ -30,8 +30,13 @@ export async function checkGSCConnection() {
  */
 export async function fetchAvailableGSCSites(userId) {
     try {
-        const apiUrl = import.meta.env.VITE_API_URL || ''
-        // Add a timestamp to the redirect URL to force a fresh session
+        let apiUrl = import.meta.env.VITE_API_URL || ''
+
+        // Safety: If we are on a live site but apiUrl is pointing to localhost, override it
+        if (window.location.hostname !== 'localhost' && (apiUrl.includes('localhost') || !apiUrl)) {
+            apiUrl = window.location.origin
+        }
+
         const timestamp = new Date().getTime();
         const response = await fetch(`${apiUrl}/api/user/available-sites?t=${timestamp}`, {
             method: 'POST',
