@@ -97,16 +97,6 @@ const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setIt
 export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData }) {
     const cp = compact
 
-    if (isLoadingData) {
-        return (
-            <div className="flex flex-col items-center justify-center py-24">
-                <Loader2 className="w-10 h-10 text-[#2563EB] animate-spin mb-4" />
-                <h3 className="text-[18px] font-medium text-[#111827]">Loading your keywords...</h3>
-                <p className="text-[13px] text-[#6B7280]">Connecting to Search Console and syncing positions</p>
-            </div>
-        )
-    }
-
     // ═══ ADD KEYWORDS MODAL STATE ═══
     const [showAddModal, setShowAddModal] = useState(false)
     const [addMode, setAddMode] = useState('single') // 'single' | 'bulk'
@@ -146,10 +136,17 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     const [trackingKwPage, setTrackingKwPage] = useState(1)
     const [locationsKwPage, setLocationsKwPage] = useState(1)
 
-    // Reset pages when filters change
-    useEffect(() => setAllKwPage(1), [posFilter, selectedCountryFilter, allKwSearch])
-    useEffect(() => setTrackingKwPage(1), [selectedCategoryFilter, trackingKwSearch])
-    useEffect(() => setLocationsKwPage(1), [selectedLocation])
+    // ═══ LOCATIONS STATE & FETCHER ═══
+    const [locations, setLocations] = useState([])
+    const [isLoadingLoc, setIsLoadingLoc] = useState(false)
+    const [selectedLocation, setSelectedLocation] = useState(null) // null = overview, or countryCode
+    const [selectedCountryFilter, setSelectedCountryFilter] = useState('All') // For 'All Keywords' tab filtering
+
+    // ═══ ADD TO BASKET STATE ═══
+    const [basketDropdown, setBasketDropdown] = useState(null) // keyword string of row with open dropdown
+    const [addingToTrack, setAddingToTrack] = useState({}) // { keywordString: true/false }
+
+    // ═══ EFFECTS & LOGIC ═══
 
     const catColors = [
         { color: '#2563EB', label: 'Blue' },
@@ -161,6 +158,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         { color: '#EA580C', label: 'Orange' },
         { color: '#DB2777', label: 'Pink' }
     ]
+
 
     // Load categories from localStorage on mount
     useEffect(() => {
@@ -305,11 +303,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         }
     }
 
-    // ═══ LOCATIONS STATE & FETCHER ═══
-    const [locations, setLocations] = useState([])
-    const [isLoadingLoc, setIsLoadingLoc] = useState(false)
-    const [selectedLocation, setSelectedLocation] = useState(null) // null = overview, or countryCode
-    const [selectedCountryFilter, setSelectedCountryFilter] = useState('All') // For 'All Keywords' tab filtering
+
 
     const gscCountryMap = {
         'usa': { name: 'United States', emoji: '🇺🇸' },
@@ -363,12 +357,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         }
     }
 
-    // Clear locations when site changes
-    useEffect(() => {
-        setLocations([])
-        setSelectedCountryFilter('All')
-        setSelectedLocation(null)
-    }, [activeSite?.id])
+
 
     // Fetch locations when the tab is clicked and data is empty
     useEffect(() => {
@@ -381,14 +370,34 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     const formatNumber = (num) => num >= 1000 ? (num / 1000).toFixed(1) + 'K' : num
 
     // Filter out GSC noise (long tail of 1-impression countries) and show top 20
-    const meaningfulLocations = [...locations]
-        .filter(loc => loc.impressions > 5 || loc.clicks > 0)
-        .sort((a, b) => b.impressions - a.impressions)
+    const meaningfulLocations = [...(locations || [])]
+        .filter(loc => loc && (loc.impressions > 5 || loc.clicks > 0))
+        .sort((a, b) => (b?.impressions || 0) - (a?.impressions || 0))
         .slice(0, 20);
 
-    // ═══ ADD TO BASKET STATE ═══
-    const [basketDropdown, setBasketDropdown] = useState(null) // keyword string of row with open dropdown
-    const [addingToTrack, setAddingToTrack] = useState({}) // { keywordString: true/false }
+    // Reset pages when filters change
+    useEffect(() => setAllKwPage(1), [posFilter, selectedCountryFilter, allKwSearch])
+    useEffect(() => setTrackingKwPage(1), [selectedCategoryFilter, trackingKwSearch])
+    useEffect(() => setLocationsKwPage(1), [selectedLocation])
+
+    // Clear locations when site changes
+    useEffect(() => {
+        setLocations([])
+        setSelectedCountryFilter('All')
+        setSelectedLocation(null)
+    }, [activeSite?.id])
+
+    if (isLoadingData) {
+        return (
+            <div className="flex flex-col items-center justify-center py-24">
+                <Loader2 className="w-10 h-10 text-[#2563EB] animate-spin mb-4" />
+                <h3 className="text-[18px] font-medium text-[#111827]">Loading your keywords...</h3>
+                <p className="text-[13px] text-[#6B7280]">Connecting to Search Console and syncing positions</p>
+            </div>
+        )
+    }
+
+
 
     const handleAddToTrack = async (kw, categoryName, kwStringId) => {
         setAddingToTrack(prev => ({ ...prev, [kwStringId]: true }))
