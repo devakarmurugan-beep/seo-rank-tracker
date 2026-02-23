@@ -1,5 +1,7 @@
 {
   "framework": "vite",
+  "installCommand": "npm install && cd api && npm install",
+  "buildCommand": "npm run build",
   "rewrites": [
     {
       "source": "/api/(.*)",
