@@ -43,9 +43,15 @@ app.post('/api/user/available-sites', async (req, res) => {
             .order('created_at', { ascending: false })
             .limit(1)
 
-        if (connError || !connections || connections.length === 0) {
-            console.log(`[Backend] No Google connection found for user ${userId}`)
-            return res.json({ success: true, count: 0, sites: [], message: 'No connection found' })
+        if (connError || !connections || connections.length === 0 || !connections[0].refresh_token) {
+            console.log(`[Backend] No Google connection or Refresh Token found for user ${userId}`)
+            return res.json({
+                success: false,
+                count: 0,
+                sites: [],
+                error: 'CONNECTION_MISSING',
+                message: 'Your Google connection is missing a "Refresh Token". Please click "Re-authorize" and make sure to check all permission boxes.'
+            })
         }
 
         const connection = connections[0]
