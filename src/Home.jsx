@@ -8,6 +8,7 @@ import { useAuth } from './AuthContext'
 import { LogoFull } from './components/Logo'
 
 // Product Screenshots
+import mainDashboardScreenshot from './assets/product/main-dashboard-screenshot.png'
 import keywordsScreenshot from './assets/product/keywords-screenshot.png'
 import rankMatrixScreenshot from './assets/product/rank-matrix-screenshot.png'
 import geoScreenshot from './assets/product/geo-performance-screenshot.png'
@@ -78,8 +79,8 @@ export default function Home() {
                                 <div className="ml-4 h-4 w-32 bg-[#F1F5F9] rounded-md"></div>
                             </div>
                             <img
-                                src={geoScreenshot}
-                                alt="Global SEO Performance Dashboard"
+                                src={mainDashboardScreenshot}
+                                alt="SEO Rank Tracking Dashboard Overview"
                                 className="w-full h-auto grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent pointer-events-none"></div>
@@ -171,6 +172,34 @@ export default function Home() {
                                     </li>
                                 ))}
                             </ul>
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-16 items-center mt-32">
+                        <div>
+                            <div className="w-12 h-12 rounded-2xl bg-[#F0F9FF] flex items-center justify-center mb-6">
+                                <Globe className="w-6 h-6 text-[#0EA5E9]" />
+                            </div>
+                            <h3 className="text-[28px] font-bold text-[#0F172A] mb-4">Global Geographic Intelligence</h3>
+                            <p className="text-[16px] text-[#475569] leading-relaxed mb-6">
+                                Track your rankings across different countries and regions. Understand where your audience is coming from and how you perform globally.
+                            </p>
+                            <ul className="space-y-4">
+                                {['Country-wise performance breakdown', 'Identify emerging markets', 'Localized search insights'].map((l, i) => (
+                                    <li key={i} className="flex items-center gap-3 text-[14px] font-medium text-[#475569]">
+                                        <CheckCircle className="w-4 h-4 text-[#10B981]" /> {l}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div className="bg-[#F8FAFC] rounded-3xl p-4 border border-[#E2E8F0] shadow-2xl group">
+                            <div className="rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+                                <img
+                                    src={geoScreenshot}
+                                    alt="Global Geographic Intelligence"
+                                    className="w-full h-auto group-hover:scale-[1.02] transition-transform duration-700"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
