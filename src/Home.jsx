@@ -17,6 +17,9 @@ import categoriesScreenshot from './assets/product/categories-performance-screen
 export default function Home() {
     const { session } = useAuth()
 
+    const isProd = window.location.hostname.includes('seoranktrackingtool.com')
+    const APP_URL = isProd ? 'https://app.seoranktrackingtool.com' : window.location.origin
+
     return (
         <div className="min-h-screen bg-white font-sans selection:bg-[#2563EB] selection:text-white overflow-x-hidden">
             {/* Nav */}
@@ -32,11 +35,11 @@ export default function Home() {
                     </div>
                     <div className="flex items-center gap-4">
                         {session ? (
-                            <Link to="/dashboard" className="px-5 py-2 bg-[#111827] text-white text-[13px] font-bold rounded-lg hover:bg-black transition-all shadow-sm">Go to Dashboard</Link>
+                            <a href={`${APP_URL}/dashboard`} className="px-5 py-2 bg-[#111827] text-white text-[13px] font-bold rounded-lg hover:bg-black transition-all shadow-sm">Go to Dashboard</a>
                         ) : (
                             <>
-                                <Link to="/login" className="hidden sm:block text-[14px] font-semibold text-[#4B5563] hover:text-[#111827]">Log in</Link>
-                                <Link to="/signup" className="px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-bold rounded-lg transition-all shadow-lg shadow-[#2563EB]/20">Start 7-Day Free Trial</Link>
+                                <a href={`${APP_URL}/login`} className="hidden sm:block text-[14px] font-semibold text-[#4B5563] hover:text-[#111827]">Log in</a>
+                                <a href={`${APP_URL}/signup`} className="px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-bold rounded-lg transition-all shadow-lg shadow-[#2563EB]/20">Start 7-Day Free Trial</a>
                             </>
                         )}
                     </div>
@@ -61,9 +64,9 @@ export default function Home() {
                         Stop guessing with scraped proxy data. Connect your Google Search Console directly for precise, zero-latency ranking intelligence for every website owner.
                     </p>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
-                        <Link to="/signup" className="px-10 py-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[16px] font-bold rounded-2xl transition-all shadow-xl shadow-[#2563EB]/25 w-full sm:w-auto hover:-translate-y-1">
+                        <a href={`${APP_URL}/signup`} className="px-10 py-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[16px] font-bold rounded-2xl transition-all shadow-xl shadow-[#2563EB]/25 w-full sm:w-auto hover:-translate-y-1">
                             Deploy Your First Tracker
-                        </Link>
+                        </a>
                         <Link to="/pricing" className="px-10 py-5 bg-white border-2 border-[#E2E8F0] hover:border-[#CBD5E1] text-[#0F172A] text-[16px] font-bold rounded-2xl transition-all w-full sm:w-auto">
                             Explore Plans
                         </Link>
@@ -333,9 +336,9 @@ export default function Home() {
                     <h2 className="text-[36px] md:text-[56px] font-black text-white leading-tight mb-8 relative">Ready to see your <br className="hidden md:block" /> true search rankings?</h2>
                     <p className="text-[18px] text-white/80 mb-12 max-w-2xl mx-auto relative font-medium">Join over 1,200+ website owners making smarter SEO decisions with Rank Tracking.</p>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-6 relative">
-                        <Link to="/signup" className="px-10 py-5 bg-white text-[#2563EB] text-[16px] font-bold rounded-2xl hover:bg-[#F8FAFC] transition-all shadow-2xl w-full sm:w-auto">
+                        <a href={`${APP_URL}/signup`} className="px-10 py-5 bg-white text-[#2563EB] text-[16px] font-bold rounded-2xl hover:bg-[#F8FAFC] transition-all shadow-2xl w-full sm:w-auto">
                             Start Free 7-Day Trial
-                        </Link>
+                        </a>
                         <p className="text-white/60 text-[13px] font-medium italic">No credit card required to start.</p>
                     </div>
                 </div>
@@ -360,8 +363,8 @@ export default function Home() {
                     <div>
                         <h5 className="text-[14px] font-bold text-[#0F172A] mb-6">Company</h5>
                         <ul className="space-y-4">
-                            <li><Link to="/login" className="text-[14px] text-[#64748B] hover:text-[#2563EB]">Login</Link></li>
-                            <li><Link to="/signup" className="text-[14px] text-[#64748B] hover:text-[#2563EB]">Signup</Link></li>
+                            <li><a href={`${APP_URL}/login`} className="text-[14px] text-[#64748B] hover:text-[#2563EB]">Login</a></li>
+                            <li><a href={`${APP_URL}/signup`} className="text-[14px] text-[#64748B] hover:text-[#2563EB]">Signup</a></li>
                         </ul>
                     </div>
                 </div>

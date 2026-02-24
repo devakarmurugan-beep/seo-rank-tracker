@@ -12,11 +12,12 @@ export default function Pricing() {
     const [successMsg, setSuccessMsg] = useState('')
     const [billingCycle, setBillingCycle] = useState('yearly') // 'monthly' | 'yearly'
 
-    const currentPlan = session?.user?.user_metadata?.plan || 'free_trial'
+    const isProd = window.location.hostname.includes('seoranktrackingtool.com')
+    const APP_URL = isProd ? 'https://app.seoranktrackingtool.com' : window.location.origin
 
     const handleSelectPlan = async (planId) => {
         if (!session) {
-            navigate('/signup')
+            window.location.href = `${APP_URL}/signup`
             return
         }
 
@@ -48,9 +49,9 @@ export default function Pricing() {
             <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-10">
                 <Link to="/" className="text-[18px] font-bold text-[#111827] tracking-tight hover:text-[#2563EB] transition-colors">SEO Tracker</Link>
                 {session ? (
-                    <Link to="/dashboard" className="px-5 py-2.5 bg-white border border-[#E5E7EB] text-[#111827] font-medium text-[14px] rounded-lg shadow-sm hover:border-[#D1D5DB] transition-all">Back to Dashboard</Link>
+                    <a href={`${APP_URL}/dashboard`} className="px-5 py-2.5 bg-white border border-[#E5E7EB] text-[#111827] font-medium text-[14px] rounded-lg shadow-sm hover:border-[#D1D5DB] transition-all">Back to Dashboard</a>
                 ) : (
-                    <Link to="/signup" className="px-5 py-2.5 bg-[#2563EB] text-white font-medium text-[14px] rounded-lg shadow-sm hover:bg-[#1D4ED8] transition-all">Start Free Trial</Link>
+                    <a href={`${APP_URL}/signup`} className="px-5 py-2.5 bg-[#2563EB] text-white font-medium text-[14px] rounded-lg shadow-sm hover:bg-[#1D4ED8] transition-all">Start Free Trial</a>
                 )}
             </div>
 

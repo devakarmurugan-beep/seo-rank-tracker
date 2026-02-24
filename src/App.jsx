@@ -47,6 +47,34 @@ function App() {
   const { session } = useAuth()
   const isTrial = getUserPlan(session?.user) === 'free_trial'
 
+  // Subdomain Detection Logic
+  const hostname = window.location.hostname
+  const isProd = hostname.includes('seoranktrackingtool.com')
+  const isAppSubdomain = hostname.startsWith('app.')
+
+  const MAIN_DOMAIN = isProd ? 'https://www.seoranktrackingtool.com' : `http://${hostname}:5173`
+  const APP_DOMAIN = isProd ? 'https://app.seoranktrackingtool.com' : `http://${hostname}:5173`
+
+  // Redirect Logic: For production only
+  useEffect(() => {
+    if (!isProd) return
+
+    const path = location.pathname
+    const appPaths = ['/dashboard', '/keywords', '/pages', '/reports']
+    const isAppPath = appPaths.some(p => path.startsWith(p))
+
+    // 1. If on www but trying to access an app path -> REDIRECT TO APP
+    if (!isAppSubdomain && isAppPath) {
+      window.location.href = `${APP_DOMAIN}${path}${location.search}`
+    }
+
+    // 2. If on app but trying to access a marketing path (Home/Pricing) -> REDIRECT TO WWW
+    // Keep Login/Signup/Auth reachable on both for flexibility, but usually they stay on APP or WWW
+    if (isAppSubdomain && (path === '/' || path === '/pricing')) {
+      window.location.href = `${MAIN_DOMAIN}${path}${location.search}`
+    }
+  }, [location.pathname, isAppSubdomain, isProd])
+
   const loadSiteData = async (site, currentRange = dateRange) => {
     if (!site) return
     setIsLoadingData(true)
@@ -223,7 +251,7 @@ function App() {
           prompt: 'consent',
           include_granted_scopes: 'true'
         },
-        redirectTo: `${window.location.origin}/auth/callback?openAddProject=true`,
+        redirectTo: `${APP_DOMAIN}/auth/callback?openAddProject=true`,
       }
     })
     if (error) console.error("Error connecting GSC:", error.message)
