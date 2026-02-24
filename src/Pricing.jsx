@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Check, CheckCircle2 } from 'lucide-react'
 import { useAuth } from './AuthContext'
-import { supabase } from './lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { createSubscription } from './lib/api'
+import { getUserPlan } from './lib/permissions'
 
 export default function Pricing() {
     const { session } = useAuth()
@@ -11,6 +12,8 @@ export default function Pricing() {
     const [isUpdating, setIsUpdating] = useState(false)
     const [successMsg, setSuccessMsg] = useState('')
     const [billingCycle, setBillingCycle] = useState('yearly') // 'monthly' | 'yearly'
+
+    const currentPlan = getUserPlan(session?.user)
 
     const isProd = window.location.hostname.includes('seoranktrackingtool.com')
     const APP_URL = isProd ? 'https://app.seoranktrackingtool.com' : window.location.origin

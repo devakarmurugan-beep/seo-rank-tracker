@@ -63,16 +63,19 @@ function App() {
 
     // 1. If on www: 
     if (!isAppSubdomain) {
-      // If user is logged in and lands on the marketing site -> Redirect to App Dashboard
-      if (session) {
-        window.location.replace(`${APP_DOMAIN}/dashboard`)
+      const isMarketingPath = path === '/' || path === '/pricing'
+
+      // Force any app path (dashboard, keywords, etc.) to the APP subdomain
+      if (!isMarketingPath) {
+        window.location.replace(`${APP_DOMAIN}${path}${location.search}`)
         return
       }
 
-      // Force any app path (dashboard, keywords, etc.) to the APP subdomain
-      const marketingPaths = ['/', '/pricing']
-      if (!marketingPaths.includes(path)) {
-        window.location.replace(`${APP_DOMAIN}${path}${location.search}`)
+      // If user is logged in and lands on root (www) -> Redirect to App Dashboard
+      // But allow /pricing to STAY on www.
+      if (session && path === '/') {
+        window.location.replace(`${APP_DOMAIN}/dashboard`)
+        return
       }
     }
 
