@@ -60,17 +60,17 @@ function App() {
     if (!isProd) return
 
     const path = location.pathname
-    const appPaths = ['/dashboard', '/keywords', '/pages', '/reports']
-    const isAppPath = appPaths.some(p => path.startsWith(p))
+    const isMarketingPath = path === '/' || path === '/pricing'
+    // Everything else including /login, /signup, /dashboard etc is an App path
+    const isAppPath = !isMarketingPath
 
-    // 1. If on www but trying to access an app path -> REDIRECT TO APP
+    // 1. If on www (or root) but trying to access an app path -> REDIRECT TO APP
     if (!isAppSubdomain && isAppPath) {
       window.location.href = `${APP_DOMAIN}${path}${location.search}`
     }
 
     // 2. If on app but trying to access a marketing path (Home/Pricing) -> REDIRECT TO WWW
-    // Keep Login/Signup/Auth reachable on both for flexibility, but usually they stay on APP or WWW
-    if (isAppSubdomain && (path === '/' || path === '/pricing')) {
+    if (isAppSubdomain && isMarketingPath) {
       window.location.href = `${MAIN_DOMAIN}${path}${location.search}`
     }
   }, [location.pathname, isAppSubdomain, isProd])

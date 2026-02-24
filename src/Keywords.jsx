@@ -12,6 +12,16 @@ const getPositionColor = (pos) => {
     return '#DC2626'
 }
 
+const getApiUrl = () => {
+    let apiUrl = import.meta.env.VITE_API_URL || ''
+    // If we're in production but the URL is localhost or empty, use the current origin
+    const isProdDomain = window.location.hostname.includes('seoranktrackingtool.com')
+    if (isProdDomain && (apiUrl.includes('localhost') || !apiUrl)) {
+        return window.location.origin
+    }
+    return apiUrl || 'http://localhost:3001'
+}
+
 /* 5-tier bucket badge */
 const getBucketStyle = (bucket) => {
     if (bucket === 'Top 3') return 'bg-[#DCFCE7] text-[#14532D]'
@@ -345,7 +355,8 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         setIsLoadingLoc(true)
         try {
             const encodedRange = encodeURIComponent(typeof dateRange === 'object' ? JSON.stringify(dateRange) : dateRange)
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/gsc/locations?siteId=${activeSite.id}&dateRange=${encodedRange}&trial=${isTrial}`)
+            const apiUrl = getApiUrl()
+            const response = await fetch(`${apiUrl}/api/gsc/locations?siteId=${activeSite.id}&dateRange=${encodedRange}&trial=${isTrial}`)
             const data = await response.json()
             if (data.success) {
                 setLocations(data.locations)
@@ -402,7 +413,8 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     const handleAddToTrack = async (kw, categoryName, kwStringId) => {
         setAddingToTrack(prev => ({ ...prev, [kwStringId]: true }))
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/keywords/track`, {
+            const apiUrl = getApiUrl()
+            const response = await fetch(`${apiUrl}/api/keywords/track`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -438,7 +450,8 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
 
     const handleUntrackKeyword = async (keyword) => {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/keywords/untrack`, {
+            const apiUrl = getApiUrl()
+            const response = await fetch(`${apiUrl}/api/keywords/untrack`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ siteId: activeSite.id, keyword })
@@ -506,7 +519,8 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         setSaveError('')
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/keywords/track`, {
+            const apiUrl = getApiUrl()
+            const response = await fetch(`${apiUrl}/api/keywords/track`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ siteId: activeSite.id, keywords: keywordsToAdd, overwrite: replaceTracking })

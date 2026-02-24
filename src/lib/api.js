@@ -25,18 +25,22 @@ export async function checkGSCConnection() {
     return { connected: true, connection: data }
 }
 
+const getApiUrl = () => {
+    let apiUrl = import.meta.env.VITE_API_URL || ''
+    // If we're in production but the URL is localhost or empty, use the current origin
+    const isProdDomain = window.location.hostname.includes('seoranktrackingtool.com')
+    if (isProdDomain && (apiUrl.includes('localhost') || !apiUrl)) {
+        return window.location.origin
+    }
+    return apiUrl
+}
+
 /**
  * Retrieves the available GSC sites from the backend without auto-saving them to the DB.
  */
 export async function fetchAvailableGSCSites(userId) {
     try {
-        let apiUrl = import.meta.env.VITE_API_URL || ''
-
-        // Safety: If we are on a live site but apiUrl is pointing to localhost, override it
-        if (window.location.hostname !== 'localhost' && (apiUrl.includes('localhost') || !apiUrl)) {
-            apiUrl = window.location.origin
-        }
-
+        const apiUrl = getApiUrl()
         const timestamp = new Date().getTime();
         const response = await fetch(`${apiUrl}/api/user/available-sites?t=${timestamp}`, {
             method: 'POST',
@@ -56,7 +60,7 @@ export async function fetchAvailableGSCSites(userId) {
  */
 export async function addProjectSite(userId, property_url, site_name) {
     try {
-        const apiUrl = import.meta.env.VITE_API_URL || ''
+        const apiUrl = getApiUrl()
         const response = await fetch(`${apiUrl}/api/user/add-site`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -88,7 +92,7 @@ export async function triggerInitialGSCDataSync() {
  */
 export async function createSubscription(userId, userEmail, planId) {
     try {
-        const apiUrl = import.meta.env.VITE_API_URL || ''
+        const apiUrl = getApiUrl()
         const response = await fetch(`${apiUrl}/api/payments/create-checkout`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

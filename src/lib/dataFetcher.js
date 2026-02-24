@@ -142,12 +142,23 @@ export const fetchIntentDistribution = async (siteId) => {
     }
 }
 
+const getApiUrl = () => {
+    let apiUrl = import.meta.env.VITE_API_URL || ''
+    // If we're in production but the URL is localhost or empty, use the current origin
+    const isProdDomain = window.location.hostname.includes('seoranktrackingtool.com')
+    if (isProdDomain && (apiUrl.includes('localhost') || !apiUrl)) {
+        return window.location.origin
+    }
+    return apiUrl || 'http://localhost:3001'
+}
+
 /**
  * Fetches top 25 non-branded keywords for trial users directly from GSC (via backend)
  */
 export const fetchTrialKeywords = async (siteId) => {
     try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/gsc/trial-keywords?siteId=${siteId}`)
+        const apiUrl = getApiUrl()
+        const response = await fetch(`${apiUrl}/api/gsc/trial-keywords?siteId=${siteId}`)
         const data = await response.json()
         if (data.success) {
             return data.keywords.map(kw => ({
