@@ -48,7 +48,7 @@ function App() {
   const isTrial = getUserPlan(session?.user) === 'free_trial'
 
   // Subdomain Detection Logic
-  const hostname = window.location.hostname
+  const hostname = window.location.hostname.toLowerCase()
   const isProd = hostname.includes('seoranktrackingtool.com')
   const isAppSubdomain = hostname.startsWith('app.')
 
@@ -61,15 +61,22 @@ function App() {
 
     const path = location.pathname
 
-    // 1. If on www: Force dashboard/keywords/etc to APP.
+    // 1. If on www: 
     if (!isAppSubdomain) {
+      // If user is logged in and lands on the marketing site -> Redirect to App Dashboard
+      if (session) {
+        window.location.replace(`${APP_DOMAIN}/dashboard`)
+        return
+      }
+
+      // Force any app path (dashboard, keywords, etc.) to the APP subdomain
       const marketingPaths = ['/', '/pricing']
       if (!marketingPaths.includes(path)) {
         window.location.replace(`${APP_DOMAIN}${path}${location.search}`)
       }
     }
 
-    // 2. If on app: Redirect / to /dashboard. Force /pricing (and other marketing) to WWW.
+    // 2. If on app: Redirect / to /dashboard. Force marketing paths to WWW.
     if (isAppSubdomain) {
       if (path === '/' || path === '/home') {
         window.location.replace(`${APP_DOMAIN}/dashboard`)
@@ -77,7 +84,7 @@ function App() {
         window.location.replace(`${MAIN_DOMAIN}/pricing`)
       }
     }
-  }, [location.pathname, isAppSubdomain, isProd])
+  }, [location.pathname, isAppSubdomain, isProd, !!session])
 
   const getApiUrl = () => {
     let apiUrl = import.meta.env.VITE_API_URL || ''
