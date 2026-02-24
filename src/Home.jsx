@@ -7,6 +7,12 @@ import {
 import { useAuth } from './AuthContext'
 import { LogoFull } from './components/Logo'
 
+// Product Screenshots
+import keywordsScreenshot from './assets/product/keywords-screenshot.png'
+import rankMatrixScreenshot from './assets/product/rank-matrix-screenshot.png'
+import geoScreenshot from './assets/product/geo-performance-screenshot.png'
+import categoriesScreenshot from './assets/product/categories-performance-screenshot.png'
+
 export default function Home() {
     const { session } = useAuth()
 
@@ -63,32 +69,20 @@ export default function Home() {
                     </div>
 
                     {/* Dashboard Mockup Preview */}
-                    <div className="relative mx-auto max-w-5xl rounded-3xl border border-[#E2E8F0] bg-white p-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden">
-                        <div className="rounded-2xl border border-[#F1F5F9] bg-[#F8FAFC] overflow-hidden">
-                            <div className="h-8 border-b border-[#E2E8F0] bg-white flex items-center px-4 gap-1.5">
+                    <div className="relative mx-auto max-w-5xl rounded-3xl border border-[#E2E8F0] bg-white p-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden animate-fade-in-up">
+                        <div className="rounded-2xl border border-[#F1F5F9] bg-[#F8FAFC] overflow-hidden relative group">
+                            <div className="h-8 border-b border-[#E2E8F0] bg-white flex items-center px-4 gap-1.5 sticky top-0 z-10">
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]"></div>
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></div>
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></div>
+                                <div className="ml-4 h-4 w-32 bg-[#F1F5F9] rounded-md"></div>
                             </div>
-                            <div className="p-4 md:p-8 space-y-6">
-                                <div className="grid grid-cols-4 gap-4">
-                                    {[1, 2, 3, 4].map(i => (
-                                        <div key={i} className="h-24 bg-white rounded-xl border border-[#E2E8F0] p-4 flex flex-col justify-between">
-                                            <div className="w-12 h-2 bg-[#F1F5F9] rounded"></div>
-                                            <div className="w-20 h-4 bg-[#E2E8F0] rounded"></div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="h-64 bg-white rounded-xl border border-[#E2E8F0] flex items-center justify-center relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-[#F8FAFC]/50 flex items-center justify-center flex-col">
-                                        <BarChart3 className="w-12 h-12 text-[#CBD5E1] mb-2" />
-                                        <p className="text-[12px] font-bold text-[#94A3B8] uppercase tracking-widest">Real-time GSC Rank Matrix</p>
-                                    </div>
-                                    <svg className="w-full h-full opacity-10" viewBox="0 0 1000 300">
-                                        <path d="M0,200 Q250,50 500,200 T1000,100" fill="none" stroke="#2563EB" strokeWidth="4" />
-                                    </svg>
-                                </div>
-                            </div>
+                            <img
+                                src={geoScreenshot}
+                                alt="Global SEO Performance Dashboard"
+                                className="w-full h-auto grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent pointer-events-none"></div>
                         </div>
                     </div>
                 </div>
@@ -139,18 +133,26 @@ export default function Home() {
                                 ))}
                             </ul>
                         </div>
-                        <div className="bg-[#F8FAFC] rounded-3xl p-8 border border-[#E2E8F0] shadow-inner">
-                            <div className="aspect-video bg-white rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-center overflow-hidden">
-                                <BarChart3 className="w-16 h-16 text-[#E2E8F0]" />
+                        <div className="bg-[#F8FAFC] rounded-3xl p-4 border border-[#E2E8F0] shadow-2xl relative group">
+                            <div className="rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+                                <img
+                                    src={keywordsScreenshot}
+                                    alt="Keyword Tracking Dashboard"
+                                    className="w-full h-auto group-hover:scale-[1.02] transition-transform duration-700"
+                                />
                             </div>
                         </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-16 items-center flex-row-reverse">
                         <div className="order-2 md:order-1">
-                            <div className="bg-[#F8FAFC] rounded-3xl p-8 border border-[#E2E8F0] shadow-inner">
-                                <div className="aspect-video bg-white rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-center">
-                                    <Globe className="w-16 h-16 text-[#E2E8F0]" />
+                            <div className="bg-[#F8FAFC] rounded-3xl p-4 border border-[#E2E8F0] shadow-2xl group">
+                                <div className="rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+                                    <img
+                                        src={rankMatrixScreenshot}
+                                        alt="Historical Rank Matrix"
+                                        className="w-full h-auto group-hover:scale-[1.02] transition-transform duration-700"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -204,15 +206,51 @@ export default function Home() {
                 <div className="max-w-4xl mx-auto px-6 text-center">
                     <h2 className="text-[32px] font-bold text-[#0F172A] mb-12">Constant Innovation</h2>
                     <div className="grid md:grid-cols-2 gap-8">
-                        <div className="p-8 rounded-3xl border border-[#E2E8F0] text-left relative overflow-hidden group">
+                        <div className="p-8 rounded-3xl border border-[#E2E8F0] text-left relative overflow-hidden group hover:border-[#2563EB] transition-colors">
                             <div className="absolute top-4 right-4 bg-[#F1F5F9] text-[#475569] text-[10px] font-bold px-2 py-1 rounded">Q2 2026</div>
                             <h4 className="text-[18px] font-bold mb-2">Advanced Page-Wise Tracking</h4>
-                            <p className="text-[14px] text-[#64748B]">Analyze organic performance by individual URLs and content types.</p>
+                            <p className="text-[14px] text-[#64748B] mb-6">Analyze organic performance by individual URLs and content types.</p>
+                            <div className="rounded-xl border border-[#F1F5F9] overflow-hidden shadow-sm">
+                                <img src={categoriesScreenshot} alt="Page-Wise Tracking" className="w-full h-auto" />
+                            </div>
                         </div>
-                        <div className="p-8 rounded-3xl border border-[#E2E8F0] text-left relative overflow-hidden group">
+                        <div className="p-8 rounded-3xl border border-[#E2E8F0] text-left relative overflow-hidden group hover:border-[#2563EB] transition-colors">
                             <div className="absolute top-4 right-4 bg-[#F1F5F9] text-[#475569] text-[10px] font-bold px-2 py-1 rounded">Q3 2026</div>
                             <h4 className="text-[18px] font-bold mb-2">Automated Client Reports</h4>
-                            <p className="text-[14px] text-[#64748B]">Scheduled, white-labeled PDF and live-link reports for agencies.</p>
+                            <p className="text-[14px] text-[#64748B] mb-6">Scheduled, white-labeled PDF and live-link reports for agencies.</p>
+                            <div className="aspect-video bg-[#F8FAFC] rounded-xl border border-dashed border-[#CBD5E1] flex items-center justify-center">
+                                <Rocket className="w-8 h-8 text-[#CBD5E1]" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Human Touch / Trust Values */}
+            <section className="py-24 bg-[#0F172A] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#2563EB]/10 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2"></div>
+                <div className="max-w-7xl mx-auto px-6 relative z-10">
+                    <div className="grid md:grid-cols-3 gap-12 text-center">
+                        <div className="space-y-4">
+                            <div className="w-16 h-16 bg-[#2563EB]/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                                <Zap className="w-8 h-8 text-[#2563EB]" />
+                            </div>
+                            <h4 className="text-[20px] font-bold text-white">No Bot Scrapers</h4>
+                            <p className="text-[14px] text-[#94A3B8] leading-relaxed">We don't use unreliable proxies. Our data comes directly from the source, ensuring yours stays accurate.</p>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="w-16 h-16 bg-[#10B981]/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                                <ShieldCheck className="w-8 h-8 text-[#10B981]" />
+                            </div>
+                            <h4 className="text-[20px] font-bold text-white">Identity Protected</h4>
+                            <p className="text-[14px] text-[#94A3B8] leading-relaxed">Your GSC data is never shared with third parties. We are GDPR and CCPA compliant by design.</p>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="w-16 h-16 bg-[#F59E0B]/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                                <CheckCircle className="w-8 h-8 text-[#F59E0B]" />
+                            </div>
+                            <h4 className="text-[20px) font-bold text-white">Human-First Design</h4>
+                            <p className="text-[14px] text-[#94A3B8] leading-relaxed">Built for busy founders and marketers, not just SEO specialists. Data you can actually understand.</p>
                         </div>
                     </div>
                 </div>
