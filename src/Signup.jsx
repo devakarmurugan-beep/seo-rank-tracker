@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
-import { BarChart3, Mail, Lock, ArrowRight } from 'lucide-react'
+import { Mail, Lock, ArrowRight } from 'lucide-react'
+import { LogoIcon } from './components/Logo'
 
 export default function Signup() {
     const navigate = useNavigate()
@@ -65,12 +66,13 @@ export default function Signup() {
                 <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_0%_0%,rgba(37,99,235,0.15)_0,transparent_50%)]"></div>
                 <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_100%_100%,rgba(16,185,129,0.1)_0,transparent_50%)]"></div>
 
-                <div className="relative z-10 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#2563EB] flex items-center justify-center">
-                        <BarChart3 className="w-5 h-5 text-white" />
+                <Link to="/" className="relative z-10 flex items-center gap-3">
+                    <LogoIcon className="w-10 h-10" color="white" />
+                    <div>
+                        <div className="text-white text-[18px] font-bold tracking-tight leading-none">Rank Tracking</div>
+                        <div className="text-[#64748B] text-[10px] font-bold tracking-[0.1em] uppercase mt-1">SEO TOOL</div>
                     </div>
-                    <span className="text-white text-[18px] font-semibold tracking-tight">SEO Tracker</span>
-                </div>
+                </Link>
 
                 <div className="relative z-10 max-w-md">
                     <h2 className="text-[36px] font-bold text-white leading-[1.15] mb-6 tracking-tight">

@@ -406,18 +406,37 @@ app.post('/api/keywords/untrack', async (req, res) => {
     }
 })
 
+// Utility to filter non-branded keywords for trial users
+const filterNonBranded = (keywords, brandVars) => {
+    return keywords.filter(kw => {
+        const text = kw.keyword.toLowerCase();
+        return !brandVars.some(b => text.includes(b.toLowerCase()));
+    });
+};
+
 // 5. Fetch Location/Country Data from GSC On-the-fly
 app.get('/api/gsc/locations', async (req, res) => {
-    const { siteId, dateRange = '30d' } = req.query
+    const { siteId, dateRange = '30d', trial = 'false' } = req.query
     if (!siteId) return res.status(400).json({ error: 'Missing siteId' })
+    const isTrial = trial === 'true'
 
     try {
-        // ... previous code 1-2 ...
         const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
         if (!site) return res.status(404).json({ error: 'Site not found' })
 
         const { data: connection } = await getSupabaseAdmin().from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
         if (!connection?.refresh_token) return res.status(404).json({ error: 'Google connection not found' })
+
+        // Generate brand variations for filtering
+        const domainClean = site.property_url
+            .replace(/^https?:\/\//, '').replace(/^sc-domain:/, '').replace(/^www\./, '')
+            .replace(/\/.*$/, '').replace(/\.com$|\.in$|\.org$|\.net$|\.co$/g, '').trim().toLowerCase()
+        const brandVars = [domainClean]
+        if (domainClean.length > 4) {
+            // Add spaced version if needed or just simple contains check is usually enough
+            const spaced = domainClean.replace(/([a-z])(fuse|tech|web|net|pro|ai|lab|box|hub|bit|app|dev|gen|id|go|my|gown|gowns)/gi, '$1 $2')
+            if (spaced !== domainClean) brandVars.push(spaced.toLowerCase())
+        }
 
         // 3. Fetch from GSC (Based on Date Range)
         let startDate, endDate;
@@ -446,7 +465,7 @@ app.get('/api/gsc/locations', async (req, res) => {
                 startDate: startDate,
                 endDate: endDate,
                 dimensions: ['country', 'query', 'page'],
-                rowLimit: 5000,
+                rowLimit: isTrial ? 1000 : 5000, // Fetch more for trial to account for branded filtering
             }
         })
 
@@ -458,6 +477,12 @@ app.get('/api/gsc/locations', async (req, res) => {
             const countryCode = row.keys[0] // e.g., 'ind', 'usa', 'gbr'
             const keyword = row.keys[1]
             const page = row.keys[2]
+
+            // Trial Filtering: Filter branded terms
+            if (isTrial) {
+                const isBranded = brandVars.some(b => keyword.toLowerCase().includes(b))
+                if (isBranded) return
+            }
 
             if (!countryMap[countryCode]) {
                 countryMap[countryCode] = {
@@ -486,14 +511,20 @@ app.get('/api/gsc/locations', async (req, res) => {
         })
 
         // 5. Format results
-        const locations = Object.values(countryMap).map(c => ({
-            countryCode: c.countryCode,
-            keywordCount: c.keywordCount,
-            impressions: c.totalImpressions,
-            clicks: c.totalClicks,
-            avgPosition: Number((c.sumPosition / c.keywordCount).toFixed(1)),
-            keywords: c.keywords.sort((a, b) => a.position - b.position)
-        }))
+        const locations = Object.values(countryMap).map(c => {
+            // Sort by position for trial users to show best rankings
+            let kws = c.keywords.sort((a, b) => a.position - b.position)
+            if (isTrial) kws = kws.slice(0, 25)
+
+            return {
+                countryCode: c.countryCode,
+                keywordCount: isTrial ? kws.length : c.keywordCount,
+                impressions: isTrial ? kws.reduce((acc, k) => acc + k.impressions, 0) : c.totalImpressions,
+                clicks: isTrial ? kws.reduce((acc, k) => acc + k.clicks, 0) : c.totalClicks,
+                avgPosition: kws.length > 0 ? Number((kws.reduce((acc, k) => acc + k.position, 0) / kws.length).toFixed(1)) : 0,
+                keywords: kws
+            }
+        })
 
         // Sort countries by keyword count (descending)
         locations.sort((a, b) => b.keywordCount - a.keywordCount)
@@ -503,6 +534,106 @@ app.get('/api/gsc/locations', async (req, res) => {
     } catch (err) {
         console.error('Error fetching GSC locations:', err.message)
         res.status(500).json({ error: 'Failed to fetch location data', details: err.message })
+    }
+})
+
+// 6. Trial Keywords Endpoint (Top 25 Non-Branded)
+app.get('/api/gsc/trial-keywords', async (req, res) => {
+    const { siteId } = req.query
+    if (!siteId) return res.status(400).json({ error: 'Missing siteId' })
+
+    try {
+        const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
+        const { data: connection } = await getSupabaseAdmin().from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
+
+        if (!site || !connection?.refresh_token) return res.status(404).json({ error: 'Site or Connection Not Found' })
+
+        const domainClean = site.property_url
+            .replace(/^https?:\/\//, '').replace(/^sc-domain:/, '').replace(/^www\./, '')
+            .replace(/\/.*$/, '').replace(/\.com$|\.in$|\.org$|\.net$|\.co$/g, '').trim().toLowerCase()
+        const brandVars = [domainClean]
+        const spaced = domainClean.replace(/([a-z])(fuse|tech|web|net|pro|ai|lab|box|hub|bit|app|dev|gen|id|go|my|gown|gowns)/gi, '$1 $2')
+        if (spaced !== domainClean) brandVars.push(spaced.toLowerCase())
+
+        const today = new Date()
+        const endDate = new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+        const startDate = new Date(today.getTime() - (32 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+
+        // Normalize siteUrl for GSC API
+        let siteUrl = site.property_url;
+        if (siteUrl.startsWith('sc-domain:') && siteUrl.endsWith('/')) {
+            siteUrl = siteUrl.slice(0, -1);
+        }
+
+        const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
+        console.log(`[Trial] Fetching GSC for: ${siteUrl}`)
+
+        let response = await gscClient.searchanalytics.query({
+            siteUrl: siteUrl,
+            requestBody: { startDate, endDate, dimensions: ['query', 'page'], rowLimit: 500 }
+        })
+
+        // Fallback: If no rows and it's a URL prefix, try toggling the trailing slash
+        if ((!response.data.rows || response.data.rows.length === 0) && !siteUrl.startsWith('sc-domain:')) {
+            const fallbackUrl = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : `${siteUrl}/`;
+            console.log(`[Trial] No data for ${siteUrl}, trying fallback: ${fallbackUrl}`);
+            try {
+                const fallbackRes = await gscClient.searchanalytics.query({
+                    siteUrl: fallbackUrl,
+                    requestBody: { startDate, endDate, dimensions: ['query', 'page'], rowLimit: 500 }
+                });
+                if (fallbackRes.data.rows && fallbackRes.data.rows.length > 0) {
+                    console.log(`[Trial] Fallback succeeded with ${fallbackRes.data.rows.length} rows`);
+                    response = fallbackRes;
+                    siteUrl = fallbackUrl; // Update for debug info
+                }
+            } catch (e) {
+                console.log(`[Trial] Fallback failed: ${e.message}`);
+            }
+        }
+
+        console.log(`[Trial] GSC matched ${response.data.rows?.length || 0} rows`)
+
+        let allRows = (response.data.rows || []).map(r => ({
+            keyword: r.keys[0],
+            page: r.keys[1],
+            clicks: r.clicks,
+            impressions: r.impressions,
+            ctr: r.ctr,
+            position: r.position
+        }))
+
+        // Filter and Sort
+        let results = filterNonBranded(allRows, brandVars)
+        console.log(`[Trial] Non-branded count: ${results.length}`)
+
+        // Fallback: If no non-branded keywords found, show whatever we have
+        // (Better than an empty screen for a trial)
+        if (results.length === 0 && allRows.length > 0) {
+            console.log(`[Trial] Falling back to branded keywords because non-branded was empty`)
+            results = allRows;
+        }
+
+        const sorted = results.sort((a, b) => a.position - b.position)
+        const top25 = sorted.slice(0, 25).map(kw => ({
+            ...kw,
+            intent: classifyKeywordIntent(kw.keyword, brandVars),
+            is_tracked: true,
+            category: 'Trial View'
+        }))
+
+        res.json({
+            success: true,
+            keywords: top25,
+            debug: {
+                totalRows: allRows.length,
+                nonBrandedCount: results.length,
+                siteUrlUsed: siteUrl
+            }
+        })
+    } catch (err) {
+        console.error(`[Trial] Error: ${err.message}`)
+        res.status(500).json({ error: 'Trial fetch failed', details: err.message })
     }
 })
 

@@ -143,6 +143,29 @@ export const fetchIntentDistribution = async (siteId) => {
 }
 
 /**
+ * Fetches top 25 non-branded keywords for trial users directly from GSC (via backend)
+ */
+export const fetchTrialKeywords = async (siteId) => {
+    try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/gsc/trial-keywords?siteId=${siteId}`)
+        const data = await response.json()
+        if (data.success) {
+            return data.keywords.map(kw => ({
+                ...kw,
+                change: 0,
+                bestPos: kw.position,
+                trend: [kw.position, kw.position, kw.position],
+                history: []
+            }))
+        }
+        return []
+    } catch (error) {
+        console.error("Error fetching trial keywords:", error)
+        return []
+    }
+}
+
+/**
  * Fetches analytics for all indexed pages
  */
 export const fetchPageAnalytics = async (siteId, dateRange = '30d') => {
@@ -161,6 +184,9 @@ export const fetchPageAnalytics = async (siteId, dateRange = '30d') => {
 
         const { data: pages } = await supabase.from('pages').select('*').eq('site_id', siteId)
         const { data: history } = await supabase.from('keyword_history').select('*, keywords!inner(keyword)').eq('keywords.site_id', siteId).gte('date', startDate).lte('date', endDate).order('date', { ascending: false })
+
+        // If no DB history (Trial user), return empty or fallback
+        if (!history || history.length === 0) return []
 
         return (pages || []).map(p => {
             const pH = (history || []).filter(h => h.page_url === p.page_url)

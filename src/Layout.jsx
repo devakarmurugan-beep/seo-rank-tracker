@@ -5,8 +5,9 @@ import { supabase } from './lib/supabase'
 import { fetchAvailableGSCSites, addProjectSite } from './lib/api'
 import { canAddSite, getSiteLimit } from './lib/permissions'
 import { useNavigate } from 'react-router-dom'
+import { LogoIcon } from './components/Logo'
 
-export default function Layout({ c, setCompactMode, dateRange, handleDateRange, isGscConnected, userSites, activeSite, setActiveSite, isLoadingData, refreshSites, syncSiteData }) {
+export default function Layout({ c, setCompactMode, dateRange, handleDateRange, isGscConnected, userSites, activeSite, setActiveSite, isLoadingData, refreshSites, syncSiteData, session, isTrial }) {
     const location = useLocation()
     const navigate = useNavigate()
     const activePage = location.pathname.split('/')[1] || 'dashboard'
@@ -159,10 +160,25 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
             {/* Sidebar */}
             <div className="w-[256px] bg-[#0F172A] flex flex-col flex-shrink-0">
                 <div className="p-5 border-b border-white/10">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-[#2563EB] flex items-center justify-center"><BarChart3 className="w-5 h-5 text-white" /></div>
-                        <div><div className="text-white text-[14px] font-semibold tracking-tight">SEO Tracker</div><div className="text-[#64748B] text-[11px] font-normal">Agency Pro Plan</div></div>
-                    </div>
+                    <Link to="/" className="flex items-center gap-3 group">
+                        <LogoIcon className="w-9 h-9" color="white" />
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <div className="text-white text-[15px] font-bold tracking-tight">Rank Tracking</div>
+                                {isTrial && <span className="text-[9px] bg-[#2563EB] text-white px-1.5 py-0.5 rounded font-bold">TRIAL</span>}
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="text-[#64748B] text-[10px] font-bold tracking-[0.1em] uppercase">
+                                    SEO TOOL
+                                </div>
+                                {!isTrial && (
+                                    <div className="text-[9px] text-[#2563EB] font-bold ml-2">
+                                        {(session?.user?.user_metadata?.plan?.split('_')[1] || 'Starter').toUpperCase()}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </Link>
                 </div>
 
                 {/* Dynamic Site Selector */}
@@ -223,13 +239,29 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                         return (<Link to={`/${item.id}`} key={item.id} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium ${isActive ? 'bg-[#2563EB] text-white shadow-[0_2px_8px_rgba(37,99,235,0.3)]' : 'text-[#94A3B8] hover:bg-white/5 hover:text-white'}`}><Icon className="w-[18px] h-[18px]" />{item.label}</Link>)
                     })}
                 </nav>
-                {/* Section Divider */}
-                <div className="mx-5 my-2 border-t border-white/5"></div>
+                <div className="mx-5 my-1 border-t border-white/5"></div>
                 <div className="p-4 mx-3 mb-3 bg-white/5 rounded-lg">
-                    <span className="text-[11px] font-medium text-[#94A3B8]">Usage Limit</span>
-                    <div className="w-full h-1.5 bg-white/10 rounded-full my-2"><div className="h-full bg-[#2563EB] rounded-full" style={{ width: '62%' }}></div></div>
-                    <div className="text-[11px] font-normal text-[#64748B] mb-3 tabular-nums">1,240 / 2,000 Keywords</div>
-                    <button className="w-full py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-semibold rounded-lg">Upgrade Plan</button>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-medium text-[#94A3B8]">Usage Limit</span>
+                        {isTrial && <span className="text-[9px] bg-[#2563EB] text-white px-1.5 py-0.5 rounded font-bold">TRIAL</span>}
+                    </div>
+                    {isTrial ? (
+                        <>
+                            <div className="w-full h-1.5 bg-white/10 rounded-full my-2"><div className="h-full bg-[#2563EB] rounded-full" style={{ width: '100%' }}></div></div>
+                            <div className="text-[11px] font-normal text-[#64748B] mb-3">25 Keywords (Restricted)</div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="w-full h-1.5 bg-white/10 rounded-full my-2"><div className="h-full bg-[#059669] rounded-full" style={{ width: '35%' }}></div></div>
+                            <div className="text-[11px] font-normal text-[#64748B] mb-3">Unlimited Keywords</div>
+                        </>
+                    )}
+                    <button
+                        onClick={() => navigate('/pricing')}
+                        className="w-full py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-semibold rounded-lg transition-colors cursor-pointer"
+                    >
+                        {isTrial ? 'Upgrade Now' : 'Manage Subscription'}
+                    </button>
                 </div>
             </div>
 

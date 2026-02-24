@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { useAuth } from './AuthContext'
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import { LayoutDashboard, Key, FileText, BarChart3, ChevronDown, Globe, Calendar, Bell, BarChart2, Rows3, Rows4 } from 'lucide-react'
 import Layout from './Layout'
@@ -13,6 +14,7 @@ import AuthCallback from './AuthCallback'
 import Home from './Home'
 import Pricing from './Pricing'
 import PricingGate from './PricingGate'
+import { getUserPlan } from './lib/permissions'
 
 function App() {
   const location = useLocation()
@@ -42,6 +44,9 @@ function App() {
   const [intentData, setIntentData] = useState([])
   const [isLoadingData, setIsLoadingData] = useState(true)
 
+  const { session } = useAuth()
+  const isTrial = getUserPlan(session?.user) === 'free_trial'
+
   const loadSiteData = async (site, currentRange = dateRange) => {
     if (!site) return
     setIsLoadingData(true)
@@ -50,13 +55,26 @@ function App() {
     setIntentData([])
     setPageAnalytics([])
     try {
-      const { fetchTrackedKeywordsWithHistory, fetchTotalPagesCount, fetchIntentDistribution, fetchPageAnalytics } = await import('./lib/dataFetcher')
-      const [keywords, pagesCount, distribution, pagesAnalytics] = await Promise.all([
-        fetchTrackedKeywordsWithHistory(site.id, currentRange),
+      const { fetchTrackedKeywordsWithHistory, fetchTotalPagesCount, fetchIntentDistribution, fetchPageAnalytics, fetchTrialKeywords } = await import('./lib/dataFetcher')
+
+      let keywords = [];
+      if (isTrial) {
+        keywords = await fetchTrialKeywords(site.id);
+        // Fallback to database if GSC live fetch returned nothing but DB has tracked keywords
+        if (keywords.length === 0) {
+          console.log("[App] Trial discovery empty, falling back to DB keywords");
+          keywords = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
+        }
+      } else {
+        keywords = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
+      }
+
+      const [pagesCount, distribution, pagesAnalytics] = await Promise.all([
         fetchTotalPagesCount(site.id),
         fetchIntentDistribution(site.id),
         fetchPageAnalytics(site.id, currentRange)
       ])
+
       setTrackedKeywords(keywords)
       setTotalPages(pagesCount)
       setIntentData(distribution)
@@ -70,6 +88,10 @@ function App() {
 
   const syncSiteData = async (site) => {
     if (!site) return
+    if (isTrial) {
+      console.log("[App] Skipping database sync for Trial user.")
+      return
+    }
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user?.id) return
 
@@ -219,7 +241,7 @@ function App() {
       <Route path="/pricing" element={<Pricing />} />
 
       {/* Authenticated Application Layout */}
-      <Route element={<ProtectedRoute><PricingGate><Layout c={compactMode} setCompactMode={setCompactMode} dateRange={dateRange} handleDateRange={handleDateRange} isGscConnected={isGscConnected} userSites={userSites} activeSite={activeSite} setActiveSite={setActiveSite} isLoadingData={isLoadingData} refreshSites={() => loadUserInfo()} syncSiteData={syncSiteData} /></PricingGate></ProtectedRoute>}>
+      <Route element={<ProtectedRoute><PricingGate><Layout c={compactMode} setCompactMode={setCompactMode} dateRange={dateRange} handleDateRange={handleDateRange} isGscConnected={isGscConnected} userSites={userSites} activeSite={activeSite} setActiveSite={setActiveSite} isLoadingData={isLoadingData} refreshSites={() => loadUserInfo()} syncSiteData={syncSiteData} session={session} isTrial={isTrial} /></PricingGate></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard CustomTooltip={CustomTooltip} compact={compactMode} dateRange={dateRange} isGscConnected={isGscConnected} handleConnectGSC={handleConnectGSC} isLoadingData={isLoadingData} trackedKeywords={trackedKeywords} userSites={userSites} activeSite={activeSite} totalPages={totalPages} intentData={intentData} syncSiteData={() => syncSiteData(activeSite)} />} />
         <Route path="/keywords" element={
           <Keywords
@@ -239,6 +261,7 @@ function App() {
             activeSite={activeSite}
             dateRange={dateRange}
             refreshData={() => activeSite && loadSiteData(activeSite)}
+            isTrial={isTrial}
           />
         } />
         <Route path="/pages" element={

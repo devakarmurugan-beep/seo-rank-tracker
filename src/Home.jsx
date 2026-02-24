@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Target, BarChart2, Globe, TrendingUp, CheckCircle } from 'lucide-react'
 import { useAuth } from './AuthContext'
+import { LogoFull } from './components/Logo'
 
 export default function Home() {
     const { session } = useAuth()
@@ -10,12 +11,9 @@ export default function Home() {
             {/* Nav */}
             <nav className="border-b border-[#E5E7EB] bg-white sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center">
-                            <BarChart2 className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="text-[18px] font-bold text-[#111827] tracking-tight">SEO Tracker</span>
-                    </div>
+                    <Link to="/" className="flex items-center">
+                        <LogoFull className="scale-90 origin-left" />
+                    </Link>
                     <div className="flex items-center gap-6">
                         <Link to="/pricing" className="text-[14px] font-medium text-[#4B5563] hover:text-[#111827]">Pricing</Link>
                         {session ? (

@@ -94,7 +94,7 @@ const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setIt
     )
 }
 
-export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData }) {
+export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData, isTrial }) {
     const cp = compact
 
     // ═══ ADD KEYWORDS MODAL STATE ═══
@@ -345,7 +345,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         setIsLoadingLoc(true)
         try {
             const encodedRange = encodeURIComponent(typeof dateRange === 'object' ? JSON.stringify(dateRange) : dateRange)
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/gsc/locations?siteId=${activeSite.id}&dateRange=${encodedRange}`)
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/gsc/locations?siteId=${activeSite.id}&dateRange=${encodedRange}&trial=${isTrial}`)
             const data = await response.json()
             if (data.success) {
                 setLocations(data.locations)
@@ -667,11 +667,21 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                         </div>
                     ) : (
                         <>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Top 25 Non-Branded Keywords' : 'All Google Search Console Keywords'}</h2>
+                                    {isTrial && <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold rounded-md border border-[#DBEAFE] uppercase tracking-wider">TRIAL MODE</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {isTrial && <span className="text-[11px] text-[#9CA3AF] font-medium">Keywords fetched: {trackedKeywords?.length || 0}</span>}
+                                    {isTrial && <span className="text-[11px] text-[#9CA3AF] italic">Upgrade for full data and branded tracking</span>}
+                                </div>
+                            </div>
                             <div className="flex items-start gap-3 p-4 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl mb-5">
                                 <Info className="w-4 h-4 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <p className="text-[13px] text-[#4B5563] font-normal">All Keywords are automatically pulled from Search Console.</p>
-                                    <p className="text-[11px] text-[#9CA3AF] mt-1 font-normal">Add important keywords to <button onClick={() => handleKwTab('tracking')} className="text-[#2563EB] font-medium hover:underline">Tracking Keywords</button> to monitor performance over time.</p>
+                                    <p className="text-[13px] text-[#4B5563] font-normal">{isTrial ? 'Trial mode shows 25 high-performing non-branded keywords from GSC.' : 'All Keywords are automatically pulled from Search Console.'}</p>
+                                    {!isTrial && <p className="text-[11px] text-[#9CA3AF] mt-1 font-normal">Add important keywords to <button onClick={() => handleKwTab('tracking')} className="text-[#2563EB] font-medium hover:underline">Tracking Keywords</button> to monitor performance over time.</p>}
                                 </div>
                             </div>
                             <div className={`flex items-center justify-between ${cp ? 'mb-3' : 'mb-4'}`}>
@@ -717,74 +727,88 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                         <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
                                     </tr></thead>
                                     <tbody>
-                                        {filteredGSC.slice((allKwPage - 1) * itemsPerPage, allKwPage * itemsPerPage).map((kw, i) => {
-                                            const kwStringId = kw.keyword;
-                                            const intent = classifyIntent(kw.keyword)
-                                            const iColor = intentColor(intent)
-                                            const isAdded = addingToTrack[kwStringId] === 'done'
-                                            const isAdding = addingToTrack[kwStringId] === true
-                                            return (
-                                                <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#FAFBFC] group">
-                                                    <td className={`px-4 ${cp ? 'py-2' : 'py-3'}`}>
-                                                        <div className="flex flex-col"><span className="text-[13px] font-medium text-[#4B5563]">{kw.keyword}</span></div>
-                                                    </td>
-                                                    <td className={`px-3 ${cp ? 'py-2' : 'py-3'} text-[12px] font-medium`}>
-                                                        {kw.page ? (
-                                                            <a
-                                                                href={kw.page}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline focus:outline-none"
-                                                                title={kw.page}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                Visit Page
-                                                            </a>
-                                                        ) : '-'}
-                                                    </td>
-                                                    <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}><span className="font-mono-data text-[13px] font-semibold text-[#4B5563]">#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span></td>
-                                                    <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
-                                                    <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
-                                                    <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.ctr ? (kw.ctr * 100 > 1 ? kw.ctr.toFixed(2) + '%' : (kw.ctr * 100).toFixed(2) + '%') : '-'}</td>
-                                                    <td className={`px-3 ${cp ? 'py-2' : 'py-3'}`}>
-                                                        <span className="text-[10px] font-medium px-2 py-1 rounded-md" style={{ backgroundColor: iColor.bg, color: iColor.text }}>{intent}</span>
-                                                    </td>
-                                                    <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}>
-                                                        {isAdded ? (
-                                                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#059669]"><Check className="w-3 h-3" />Added</span>
-                                                        ) : (
-                                                            <div className="relative">
-                                                                <button
-                                                                    onClick={() => setBasketDropdown(basketDropdown === kwStringId ? null : kwStringId)}
-                                                                    disabled={isAdding}
-                                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-[#4B5563] border border-[#E5E7EB] rounded-md hover:border-[#2563EB] hover:text-[#2563EB] bg-white transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
-                                                                >
-                                                                    {isAdding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                                                                    Track
-                                                                    <ChevronDown className="w-2.5 h-2.5" />
-                                                                </button>
-                                                                {basketDropdown === kwStringId && (
-                                                                    <div className="absolute right-0 top-full mt-1 w-[180px] bg-white border border-[#E5E7EB] rounded-lg shadow-lg z-40 py-1">
-                                                                        <p className="px-3 py-1.5 text-[10px] font-medium text-[#9CA3AF] uppercase">Add to category</p>
-                                                                        {allCategoryOptions.map(cat => (
-                                                                            <button key={cat} onClick={() => handleAddToTrack(kw, cat, kwStringId)} className="w-full text-left px-3 py-2 text-[12px] text-[#4B5563] hover:bg-[#EFF6FF] hover:text-[#2563EB] font-normal">{cat}</button>
-                                                                        ))}
-                                                                        <div className="border-t border-[#F3F4F6] mt-1 pt-1">
-                                                                            <button onClick={() => handleAddToTrack(kw, 'Uncategorized', kwStringId)} className="w-full text-left px-3 py-2 text-[12px] text-[#9CA3AF] hover:bg-[#F9FAFB] font-normal">No category</button>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
+                                        {(() => {
+                                            const displayList = isTrial ? (filteredGSC || []).slice(0, 25) : (filteredGSC || []);
+                                            if (displayList.length === 0 && !isLoadingData) {
+                                                return (
+                                                    <tr>
+                                                        <td colSpan="8" className="py-16 text-center">
+                                                            <div className="flex flex-col items-center justify-center">
+                                                                <div className="w-16 h-16 bg-[#F9FAFB] rounded-full flex items-center justify-center mb-4">
+                                                                    <Search className="w-8 h-8 text-[#9CA3AF] opacity-20" />
+                                                                </div>
+                                                                <p className="text-[15px] font-semibold text-[#111827]">No keywords found</p>
+                                                                <p className="text-[13px] text-[#6B7280] mt-1 max-w-xs mx-auto">
+                                                                    {isTrial
+                                                                        ? "We didn't find any non-branded keywords for this site in the top positions."
+                                                                        : "Try adjusting your filters or search query to find more results."}
+                                                                </p>
                                                             </div>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })
-                                        }
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }
+
+                                            // Regular table rows
+                                            return displayList.slice((allKwPage - 1) * itemsPerPage, allKwPage * itemsPerPage).map((kw, i) => {
+                                                const kwStringId = kw.keyword;
+                                                const intent = classifyIntent(kw.keyword)
+                                                const iColor = intentColor(intent)
+                                                const isAdded = addingToTrack[kwStringId] === 'done'
+
+                                                return (
+                                                    <tr key={`${kw.keyword}-${i}`} className="border-b border-[#F3F4F6] hover:bg-[#FAFBFC] group transition-colors">
+                                                        <td className={`px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                            <div className="flex flex-col"><span className="text-[13px] font-medium text-[#4B5563]">{kw.keyword}</span></div>
+                                                        </td>
+                                                        <td className={`px-3 ${cp ? 'py-2.5' : 'py-4'} text-[12px] font-medium`}>
+                                                            {kw.page ? (
+                                                                <a href={kw.page} target="_blank" rel="noopener noreferrer" className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline" title={kw.page} onClick={(e) => e.stopPropagation()}>Visit Page</a>
+                                                            ) : '-'}
+                                                        </td>
+                                                        <td className={`text-center px-3 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                            <span className="font-mono-data text-[13px] font-semibold text-[#111827]">#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span>
+                                                        </td>
+                                                        <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
+                                                        <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
+                                                        <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.ctr ? (kw.ctr * 100).toFixed(2) + '%' : '-'}</td>
+                                                        <td className={`px-3 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider" style={{ backgroundColor: iColor.bg, color: iColor.text }}>{intent}</span>
+                                                        </td>
+                                                        <td className={`text-center px-3 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                            {isAdded ? (
+                                                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#059669] uppercase"><Check className="w-3.5 h-3.5" /> Added</span>
+                                                            ) : (
+                                                                !isTrial && (
+                                                                    <button onClick={(e) => { e.stopPropagation(); setBasketDropdown(basketDropdown === kwStringId ? null : kwStringId) }} className="p-1.5 hover:bg-[#F3F4F6] rounded-lg transition-colors text-[#9CA3AF] hover:text-[#4B5563] ml-auto">
+                                                                        <ShoppingBag className="w-4 h-4" />
+                                                                    </button>
+                                                                )
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
+                                        {isTrial && (
+                                            <tr>
+                                                <td colSpan="8" className="px-5 py-6 text-center bg-[#F9FAFB]/50">
+                                                    <div className="flex flex-col items-center justify-center gap-2">
+                                                        <p className="text-[13px] text-[#6B7280] font-medium">Currently viewing 25 restricted keywords from GSC.</p>
+                                                        <button
+                                                            onClick={() => navigate('/pricing')}
+                                                            className="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-bold rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
+                                                        >
+                                                            Load all keywords & unlock tracking
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                                 <Pagination
-                                    totalItems={filteredGSC?.length || 0}
+                                    totalItems={isTrial ? Math.min(filteredGSC?.length || 0, 25) : filteredGSC?.length || 0}
                                     currentPage={allKwPage}
                                     onPageChange={setAllKwPage}
                                     itemsPerPage={itemsPerPage}
@@ -805,10 +829,16 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                             <h3 className="text-[20px] font-semibold text-[#111827] mb-2 tracking-[-0.01em]">Track Strategic Keywords</h3>
                             <p className="text-[13px] text-[#4B5563] max-w-md text-center mb-2 font-normal">Add high-priority keywords manually or use AI to automatically detect primary keywords from your website pages.</p>
                             <div className="flex items-center gap-2 mb-8 px-3 py-1.5 bg-[#F9FAFB] rounded-lg"><Info className="w-3 h-3 text-[#9CA3AF]" /><span className="text-[11px] text-[#9CA3AF] font-normal">Tracking Keywords are monitored historically and included in client reports.</span></div>
-                            <div className="flex items-center gap-3">
-                                <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#111827] hover:border-[#D1D5DB] bg-white"><Plus className="w-4 h-4" />Add Keywords Manually</button>
-                                <button onClick={handleStartAI} className="flex items-center gap-2 px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg"><Sparkles className="w-4 h-4" />Auto-Detect Primary Keywords</button>
-                            </div>
+                            {!isTrial ? (
+                                <div className="flex items-center gap-3">
+                                    <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#111827] hover:border-[#D1D5DB] bg-white"><Plus className="w-4 h-4" />Add Keywords Manually</button>
+                                    <button onClick={handleStartAI} className="flex items-center gap-2 px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg"><Sparkles className="w-4 h-4" />Auto-Detect Primary Keywords</button>
+                                </div>
+                            ) : (
+                                <div className="text-center">
+                                    <p className="text-[14px] text-[#2563EB] font-medium">Upgrade to Pro to manually track specific keywords.</p>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div>
@@ -820,8 +850,10 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                             )}
                             <div className={`flex items-center justify-between ${cp ? 'mb-3' : 'mb-4'}`}>
                                 <div className="flex items-center gap-3">
-                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" /><input type="text" placeholder="Search tracked keywords..." value={trackingKwSearch} onChange={(e) => setTrackingKwSearch(e.target.value)} className="pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 w-[280px] bg-white" /></div>
-                                    <div className="flex items-center gap-1 px-2 py-1.5 bg-[#F9FAFB] rounded-lg"><Info className="w-3 h-3 text-[#9CA3AF]" /><span className="text-[10px] text-[#9CA3AF] font-normal">Only tracked keywords appear in reports</span></div>
+                                    <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Tracked Keywords' : 'Tracked Keywords'}</h2>
+                                    {isTrial && <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold rounded-md border border-[#DBEAFE] uppercase tracking-wider">TRIAL MODE</span>}
+                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" /><input type="text" placeholder="Search tracked keywords..." value={trackingKwSearch} onChange={(e) => setTrackingKwSearch(e.target.value)} className="pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 w-[240px] bg-white" /></div>
+                                    <div className="flex items-center gap-1 px-2 py-1.5 bg-[#F9FAFB] rounded-lg"><Info className="w-3 h-3 text-[#9CA3AF]" /><span className="text-[11px] text-[#9CA3AF] font-normal">{isTrial ? 'Trial mode shows 25 pre-tracked keywords.' : 'Only tracked keywords appear in reports'}</span></div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {/* Matrix View Toggle */}
@@ -1020,6 +1052,12 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             {/* TAB 4: LOCATIONS VIEW */}
             {kwTab === 'locations' && (
                 <div>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Top 25 Keywords per Country' : 'Geographic Performance'}</h2>
+                            {isTrial && <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold rounded-md border border-[#DBEAFE] uppercase tracking-wider">TRIAL MODE</span>}
+                        </div>
+                    </div>
                     {!isGscConnected ? (
                         <div className="flex flex-col items-center justify-center py-24 bg-white border border-[#E5E7EB] rounded-2xl">
                             <div className="w-20 h-20 rounded-2xl bg-[#EFF6FF] flex items-center justify-center mb-6"><Globe className="w-10 h-10 text-[#2563EB]" /></div>
@@ -1145,35 +1183,49 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {(selectedData?.keywords || []).slice((locationsKwPage - 1) * itemsPerPage, locationsKwPage * itemsPerPage).map((kw, i) => (
-                                                        <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors">
-                                                            <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium text-[#111827]`}>{kw.keyword}</td>
-                                                            <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium`}>
-                                                                {kw.page ? (
-                                                                    <a
-                                                                        href={kw.page}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline focus:outline-none"
-                                                                        title={kw.page}
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        Visit Page
-                                                                    </a>
-                                                                ) : '-'}
-                                                            </td>
-                                                            <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
-                                                                <span className="font-mono-data text-[13px] font-bold" style={{ color: (kw.position || 0) <= 3 ? '#059669' : '#111827' }}>#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span>
-                                                            </td>
-                                                            <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
-                                                            <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
-                                                            <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#9CA3AF]`}>{kw.ctr ? (kw.ctr * 100).toFixed(2) + '%' : '-'}</td>
-                                                        </tr>
-                                                    ))}
+                                                    {(() => {
+                                                        const list = isTrial ? (selectedData?.keywords || []).slice(0, 25) : (selectedData?.keywords || []);
+                                                        return (
+                                                            <>
+                                                                {list.slice((locationsKwPage - 1) * itemsPerPage, locationsKwPage * itemsPerPage).map((kw, i) => (
+                                                                    <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors">
+                                                                        <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium text-[#111827]`}>{kw.keyword}</td>
+                                                                        <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium`}>
+                                                                            {kw.page ? (
+                                                                                <a
+                                                                                    href={kw.page}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline focus:outline-none"
+                                                                                    title={kw.page}
+                                                                                    onClick={(e) => e.stopPropagation()}
+                                                                                >
+                                                                                    Visit Page
+                                                                                </a>
+                                                                            ) : '-'}
+                                                                        </td>
+                                                                        <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                                            <span className="font-mono-data text-[13px] font-bold" style={{ color: (kw.position || 0) <= 3 ? '#059669' : '#111827' }}>#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span>
+                                                                        </td>
+                                                                        <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
+                                                                        <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
+                                                                        <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#9CA3AF]`}>{kw.ctr ? (kw.ctr * 100).toFixed(2) + '%' : '-'}</td>
+                                                                    </tr>
+                                                                ))}
+                                                                {isTrial && (selectedData?.keywords || []).length > 25 && (
+                                                                    <tr>
+                                                                        <td colSpan="6" className="px-5 py-4 text-center bg-[#F9FAFB]">
+                                                                            <p className="text-[12px] text-[#6B7280]">Trial limited to Top 25 keywords. <button onClick={() => navigate('/pricing')} className="text-[#2563EB] font-semibold hover:underline">Upgrade to see all {(selectedData?.keywords || []).length} keywords</button></p>
+                                                                        </td>
+                                                                    </tr>
+                                                                )}
+                                                            </>
+                                                        )
+                                                    })()}
                                                 </tbody>
                                             </table>
                                             <Pagination
-                                                totalItems={selectedData?.keywords?.length || 0}
+                                                totalItems={isTrial ? Math.min(selectedData?.keywords?.length || 0, 25) : selectedData?.keywords?.length || 0}
                                                 currentPage={locationsKwPage}
                                                 onPageChange={setLocationsKwPage}
                                                 itemsPerPage={itemsPerPage}
