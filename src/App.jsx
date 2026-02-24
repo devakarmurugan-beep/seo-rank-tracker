@@ -60,20 +60,34 @@ function App() {
     if (!isProd) return
 
     const path = location.pathname
-    const isMarketingPath = path === '/' || path === '/pricing'
-    // Everything else including /login, /signup, /dashboard etc is an App path
-    const isAppPath = !isMarketingPath
 
-    // 1. If on www (or root) but trying to access an app path -> REDIRECT TO APP
-    if (!isAppSubdomain && isAppPath) {
-      window.location.href = `${APP_DOMAIN}${path}${location.search}`
+    // 1. If on www: Force dashboard/keywords/etc to APP.
+    if (!isAppSubdomain) {
+      const marketingPaths = ['/', '/pricing']
+      if (!marketingPaths.includes(path)) {
+        window.location.replace(`${APP_DOMAIN}${path}${location.search}`)
+      }
     }
 
-    // 2. If on app but trying to access a marketing path (Home/Pricing) -> REDIRECT TO WWW
-    if (isAppSubdomain && isMarketingPath) {
-      window.location.href = `${MAIN_DOMAIN}${path}${location.search}`
+    // 2. If on app: Redirect / to /dashboard. Force /pricing (and other marketing) to WWW.
+    if (isAppSubdomain) {
+      if (path === '/' || path === '/home') {
+        window.location.replace(`${APP_DOMAIN}/dashboard`)
+      } else if (path === '/pricing') {
+        window.location.replace(`${MAIN_DOMAIN}/pricing`)
+      }
     }
   }, [location.pathname, isAppSubdomain, isProd])
+
+  const getApiUrl = () => {
+    let apiUrl = import.meta.env.VITE_API_URL || ''
+    // If we're in production but the URL is localhost or empty, use the current origin
+    const isProdDomain = window.location.hostname.includes('seoranktrackingtool.com')
+    if (isProdDomain && (apiUrl.includes('localhost') || !apiUrl)) {
+      return window.location.origin
+    }
+    return apiUrl || 'http://localhost:3001'
+  }
 
   const loadSiteData = async (site, currentRange = dateRange) => {
     if (!site) return
@@ -124,7 +138,8 @@ function App() {
     if (!session?.user?.id) return
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/user/sync-site-data`, {
+      const apiUrl = getApiUrl()
+      const response = await fetch(`${apiUrl}/api/user/sync-site-data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: session.user.id, siteId: site.id, brandVariations: [site.site_name] })
@@ -166,6 +181,14 @@ function App() {
     async function initializeAppData() {
       setIsCheckingGsc(true)
       setIsLoadingData(true)
+
+      // Don't waste API calls initializing app data on marketing pages
+      const isMarketingPage = !isAppSubdomain && (location.pathname === '/' || location.pathname === '/pricing')
+      if (isMarketingPage) {
+        setIsCheckingGsc(false)
+        setIsLoadingData(false)
+        return
+      }
 
       try {
         const connected = await refreshGSCConnection()

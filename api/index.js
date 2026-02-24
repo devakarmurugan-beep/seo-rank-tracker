@@ -544,9 +544,11 @@ app.get('/api/gsc/trial-keywords', async (req, res) => {
 
     try {
         const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
+        if (!site) return res.status(404).json({ error: 'Site Not Found' })
+
         const { data: connection } = await getSupabaseAdmin().from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
 
-        if (!site || !connection?.refresh_token) return res.status(404).json({ error: 'Site or Connection Not Found' })
+        if (!connection?.refresh_token) return res.status(404).json({ error: 'Connection Not Found' })
 
         const domainClean = site.property_url
             .replace(/^https?:\/\//, '').replace(/^sc-domain:/, '').replace(/^www\./, '')
