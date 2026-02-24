@@ -218,7 +218,49 @@ export default function Home() {
                 </div>
             </section>
 
+            {/* Why Us / Comparison Section */}
+            <section className="py-24 bg-[#F8FAFC]">
+                <div className="max-w-7xl mx-auto px-6">
+                    <div className="bg-white rounded-[3rem] p-12 md:p-20 border border-[#E2E8F0] shadow-xl shadow-[#2563EB]/5">
+                        <div className="grid md:grid-cols-2 gap-16">
+                            <div>
+                                <h2 className="text-[32px] font-bold text-[#0F172A] mb-6 decoration-[#2563EB] decoration-4 underline-offset-8">GSC API vs. Proxy Scrapers</h2>
+                                <p className="text-[16px] text-[#475569] leading-relaxed mb-8">
+                                    Most rank trackers use bot-proxies that Google hates. They get blocked, provide "blurred" rankings, and can't see geographical nuances accurately.
+                                </p>
+                                <div className="space-y-4">
+                                    <div className="flex items-start gap-4 p-4 rounded-2xl bg-[#F0FDF4] border border-[#DCFCE7]">
+                                        <ShieldCheck className="w-6 h-6 text-[#10B981] flex-shrink-0" />
+                                        <div>
+                                            <h5 className="font-bold text-[#111827]">100% Google Approved</h5>
+                                            <p className="text-[13px] text-[#065F46]">We use official APIs. Your site is safe, and the data is 100% what Google sees.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-4 p-4 rounded-2xl bg-[#EFF6FF] border border-[#DBEAFE]">
+                                        <TrendingUp className="w-6 h-6 text-[#2563EB] flex-shrink-0" />
+                                        <div>
+                                            <h5 className="font-bold text-[#111827]">Unlimited Keyword Discovery</h5>
+                                            <p className="text-[13px] text-[#1E40AF]">Don't just track 10 keywords. See all 10,000+ keywords you rank for automatically.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <div className="aspect-square bg-[#F1F5F9] rounded-3xl border-2 border-dashed border-[#CBD5E1] flex items-center justify-center p-8">
+                                    <div className="text-center">
+                                        <MousePointer2 className="w-12 h-12 text-[#94A3B8] mx-auto mb-4" />
+                                        <p className="text-[14px] font-bold text-[#475569]">Click-Through Rate (CTR) Tracking</p>
+                                        <p className="text-[12px] text-[#64748B] mt-2 italic">Exclusive feature only possible via GSC Data.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* Final CTA */}
+            {/* ... rest of the content ... */}
             <section className="py-24 px-6">
                 <div className="max-w-5xl mx-auto rounded-[3rem] bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] p-12 md:p-20 text-center relative overflow-hidden">
                     <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(white 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
@@ -260,8 +302,8 @@ export default function Home() {
                 <div className="max-w-7xl mx-auto px-6 mt-20 pt-8 border-t border-[#E2E8F0] flex flex-col md:flex-row justify-between items-center gap-4">
                     <p className="text-[13px] text-[#94A3B8]">© {new Date().getFullYear()} Rank Tracking SEO TOOL. All rights reserved.</p>
                     <div className="flex items-center gap-6">
-                        <span className="text-[12px] text-[#94A3B8]">Privacy Policy</span>
-                        <span className="text-[12px] text-[#94A3B8]">Terms of Service</span>
+                        <a href="#" className="text-[12px] text-[#94A3B8] hover:text-[#2563EB]">Privacy Policy</a>
+                        <a href="#" className="text-[12px] text-[#94A3B8] hover:text-[#2563EB]">Terms of Service</a>
                     </div>
                 </div>
             </footer>
