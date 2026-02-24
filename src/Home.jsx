@@ -260,7 +260,6 @@ export default function Home() {
             </section>
 
             {/* Final CTA */}
-            {/* ... rest of the content ... */}
             <section className="py-24 px-6">
                 <div className="max-w-5xl mx-auto rounded-[3rem] bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] p-12 md:p-20 text-center relative overflow-hidden">
                     <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(white 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
