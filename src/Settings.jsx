@@ -10,6 +10,7 @@ export default function Settings({ userSites = [] }) {
     const location = useLocation()
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
+    const [billingCycle, setBillingCycle] = useState('monthly') // 'monthly' | 'yearly'
     const currentPlan = getUserPlan(session?.user)
     const siteLimit = getSiteLimit(session?.user)
     const siteCount = userSites.length
@@ -57,9 +58,31 @@ export default function Settings({ userSites = [] }) {
     }, [location.search, !!session])
 
     const plans = [
-        { id: 'plan_starter_monthly', name: 'Starter', price: '14', sites: 1, color: '#6366F1' },
-        { id: 'plan_pro_monthly', name: 'Professional', price: '39', sites: 5, color: '#2563EB', popular: true },
-        { id: 'plan_agency_monthly', name: 'Agency', price: '149', sites: 25, color: '#1E293B' },
+        {
+            id: 'plan_starter',
+            name: 'Starter',
+            monthlyPrice: '14',
+            yearlyPrice: '9',
+            sites: 1,
+            color: '#6366F1'
+        },
+        {
+            id: 'plan_pro',
+            name: 'Professional',
+            monthlyPrice: '39',
+            yearlyPrice: '29',
+            sites: 5,
+            color: '#2563EB',
+            popular: true
+        },
+        {
+            id: 'plan_agency',
+            name: 'Agency',
+            monthlyPrice: '149',
+            yearlyPrice: '99',
+            sites: 25,
+            color: '#1E293B'
+        },
     ]
 
     return (
@@ -104,36 +127,62 @@ export default function Settings({ userSites = [] }) {
                             </p>
                         </div>
 
-                        {/* Plan Toggle (If they aren't on agency yet) */}
-                        <div className="grid grid-cols-3 gap-4">
-                            {plans.map((plan) => (
-                                <div
-                                    key={plan.id}
-                                    className={`relative p-5 rounded-xl border-2 transition-all ${currentPlan === plan.id || (currentPlan === 'free_trial' && plan.id.includes('starter')) ? 'border-[#2563EB] bg-[#F8FAFF]' : 'border-[#F1F5F9] bg-white hover:border-[#E2E8F0]'}`}
+                        {/* Billing Toggle */}
+                        <div className="flex justify-center mb-8">
+                            <div className="inline-flex items-center p-1 bg-[#F1F5F9] rounded-xl border border-[#E2E8F0]">
+                                <button
+                                    onClick={() => setBillingCycle('monthly')}
+                                    className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all ${billingCycle === 'monthly' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#64748B] hover:text-[#111827]'}`}
                                 >
-                                    {plan.popular && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#2563EB] text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Popular</span>}
-                                    <div className="text-[14px] font-bold text-[#111827] mb-1">{plan.name}</div>
-                                    <div className="flex items-baseline gap-0.5 mb-4">
-                                        <span className="text-[20px] font-bold text-[#111827]">${plan.price}</span>
-                                        <span className="text-[11px] text-[#64748B]">/mo</span>
-                                    </div>
-                                    <ul className="space-y-2 mb-6">
-                                        <li className="flex items-center gap-1.5 text-[11px] text-[#475569]">
-                                            <Check className="w-3 h-3 text-[#22C55E]" /> {plan.sites} Websites
-                                        </li>
-                                        <li className="flex items-center gap-1.5 text-[11px] text-[#475569]">
-                                            <Check className="w-3 h-3 text-[#22C55E]" /> Priority Sync
-                                        </li>
-                                    </ul>
-                                    <button
-                                        disabled={loading || currentPlan === plan.id}
-                                        onClick={() => handleUpgrade(plan.id)}
-                                        className={`w-full py-2 rounded-lg text-[12px] font-bold transition-all ${currentPlan === plan.id ? 'bg-[#E2E8F0] text-[#64748B] cursor-default' : 'bg-[#111827] text-white hover:bg-[#1E293B]'}`}
+                                    Monthly
+                                </button>
+                                <button
+                                    onClick={() => setBillingCycle('yearly')}
+                                    className={`px-6 py-2 rounded-lg text-[13px] font-bold transition-all flex items-center gap-2 ${billingCycle === 'yearly' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#64748B] hover:text-[#111827]'}`}
+                                >
+                                    Yearly <span className="bg-[#D1FAE5] text-[#065F46] text-[9px] uppercase px-2 py-0.5 rounded-full">Save 30%</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Plan Selection */}
+                        <div className="grid grid-cols-3 gap-4">
+                            {plans.map((plan) => {
+                                const fullPlanId = `${plan.id}_${billingCycle}`
+                                const isActive = currentPlan === fullPlanId || (currentPlan === 'free_trial' && plan.id === 'plan_starter')
+
+                                return (
+                                    <div
+                                        key={plan.id}
+                                        className={`relative p-5 rounded-xl border-2 transition-all ${isActive ? 'border-[#2563EB] bg-[#F8FAFF]' : 'border-[#F1F5F9] bg-white hover:border-[#E2E8F0]'}`}
                                     >
-                                        {loading ? <Loader2 className="w-3 h-3 animate-spin mx-auto text-white" /> : currentPlan === plan.id ? 'Active' : 'Upgrade'}
-                                    </button>
-                                </div>
-                            ))}
+                                        {plan.popular && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#2563EB] text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Popular</span>}
+                                        <div className="text-[14px] font-bold text-[#111827] mb-1">{plan.name}</div>
+                                        <div className="flex items-baseline gap-0.5 mb-1">
+                                            <span className="text-[20px] font-bold text-[#111827]">${billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice}</span>
+                                            <span className="text-[11px] text-[#64748B]">/mo</span>
+                                        </div>
+                                        <div className="text-[10px] text-[#94A3B8] mb-4 h-4">
+                                            {billingCycle === 'yearly' ? `Billed $${plan.yearlyPrice * 12}/yr` : 'Billed monthly'}
+                                        </div>
+                                        <ul className="space-y-2 mb-6">
+                                            <li className="flex items-center gap-1.5 text-[11px] text-[#475569]">
+                                                <Check className="w-3 h-3 text-[#22C55E]" /> {plan.sites} Websites
+                                            </li>
+                                            <li className="flex items-center gap-1.5 text-[11px] text-[#475569]">
+                                                <Check className="w-3 h-3 text-[#22C55E]" /> Priority Sync
+                                            </li>
+                                        </ul>
+                                        <button
+                                            disabled={loading || isActive}
+                                            onClick={() => handleUpgrade(fullPlanId)}
+                                            className={`w-full py-2 rounded-lg text-[12px] font-bold transition-all ${isActive ? 'bg-[#E2E8F0] text-[#64748B] cursor-default' : 'bg-[#111827] text-white hover:bg-[#1E293B]'}`}
+                                        >
+                                            {loading ? <Loader2 className="w-3 h-3 animate-spin mx-auto text-white" /> : isActive ? 'Active' : 'Upgrade'}
+                                        </button>
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
 

@@ -43,49 +43,56 @@ router.post('/create-checkout', async (req, res) => {
         }
 
         if (!productId) {
-            return res.status(400).json({ error: 'Invalid plan ID for checkout' })
+            console.error(`[Checkout] Plan ID not found in mapping: ${planId}`)
+            return res.status(400).json({ error: 'Invalid plan ID. This plan might not be mapped to a product yet.' })
         }
 
         const returnUrl = (process.env.GCP_REDIRECT_URI?.replace('/auth/callback', '') || 'http://localhost:5173') + '/dashboard?payment=success'
 
+        console.log(`[Checkout] Connecting to Dodo for Product: ${productId}, User: ${userEmail}`)
+
         // Connect to Dodo Payments create checkout URL
-        const paymentData = await getDodoClient().payments.create({
-            billing: {
-                city: '',
-                country: '',
-                state: '',
-                street: '',
-                zipcode: ''
-            },
-            customer: {
-                email: userEmail || '',
-                name: ''
-            },
-            product_cart: [
-                {
-                    product_id: productId,
-                    quantity: 1
-                }
-            ],
-            // We can pass our app's internal user ID so the webhook knows who paid
-            metadata: {
-                supabase_user_id: userId,
-                plan_id: planId
-            },
-            return_url: returnUrl
-        })
+        try {
+            const paymentData = await getDodoClient().payments.create({
+                customer: {
+                    email: userEmail || '',
+                    name: ''
+                },
+                product_cart: [
+                    {
+                        product_id: productId,
+                        quantity: 1
+                    }
+                ],
+                // We can pass our app's internal user ID so the webhook knows who paid
+                metadata: {
+                    supabase_user_id: userId,
+                    plan_id: planId
+                },
+                return_url: returnUrl
+            })
 
+            // The redirect URL where users enter their credit card
+            const checkoutUrl = paymentData.payment_link || (paymentData._links && paymentData._links.payment_link)
 
-        // The redirect URL where users enter their credit card
-        const checkoutUrl = paymentData.payment_link || (paymentData._links && paymentData._links.payment_link)
+            if (!checkoutUrl) {
+                console.error('[Checkout] Dodo Response missing payment_link:', paymentData)
+                throw new Error("Could not retrieve checkout link from Dodo Payments response")
+            }
 
-        if (!checkoutUrl) throw new Error("Could not retrieve checkout link from Dodo Payments")
-
-        res.json({ success: true, checkoutUrl })
+            res.json({ success: true, checkoutUrl })
+        } catch (dodoErr) {
+            console.error('[Checkout] Dodo API Error Details:', dodoErr.response?.data || dodoErr.message)
+            const dodoMessage = dodoErr.response?.data?.message || dodoErr.message
+            res.status(500).json({
+                error: 'PAYMENT_GATEWAY_ERROR',
+                message: `Dodo Payments said: ${dodoMessage}. Please verify your Product ID (${productId}) and API Key.`
+            })
+        }
 
     } catch (err) {
-        console.error('Dodo checkout creation block error', err.response?.data || err)
-        res.status(500).json({ error: 'Checkout generation failed', message: err.message })
+        console.error('[Checkout] Internal Server Error:', err)
+        res.status(500).json({ error: 'INTERNAL_ERROR', message: err.message })
     }
 })
 
