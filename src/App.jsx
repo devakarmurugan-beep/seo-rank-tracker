@@ -14,6 +14,8 @@ import AuthCallback from './AuthCallback'
 import Home from './Home'
 import Pricing from './Pricing'
 import PricingGate from './PricingGate'
+import Privacy from './Privacy'
+import Terms from './Terms'
 import { getUserPlan } from './lib/permissions'
 
 function App() {
@@ -63,7 +65,8 @@ function App() {
 
     // 1. If on www: 
     if (!isAppSubdomain) {
-      const isMarketingPath = path === '/' || path === '/pricing'
+      // Allow only /, /pricing, /privacy, and /terms.
+      const isMarketingPath = path === '/' || path.toLowerCase() === '/pricing' || path.toLowerCase() === '/privacy' || path.toLowerCase() === '/terms'
 
       // Force any app path (dashboard, keywords, etc.) to the APP subdomain
       if (!isMarketingPath) {
@@ -300,6 +303,8 @@ function App() {
       {/* Public Routes */}
       <Route path="/" element={<Home />} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
 
       {/* Authenticated Application Layout */}
       <Route element={<ProtectedRoute><PricingGate><Layout c={compactMode} setCompactMode={setCompactMode} dateRange={dateRange} handleDateRange={handleDateRange} isGscConnected={isGscConnected} userSites={userSites} activeSite={activeSite} setActiveSite={setActiveSite} isLoadingData={isLoadingData} refreshSites={() => loadUserInfo()} syncSiteData={syncSiteData} session={session} isTrial={isTrial} /></PricingGate></ProtectedRoute>}>

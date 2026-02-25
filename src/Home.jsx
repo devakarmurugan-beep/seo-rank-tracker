@@ -371,8 +371,8 @@ export default function Home() {
                 <div className="max-w-7xl mx-auto px-6 mt-20 pt-8 border-t border-[#E2E8F0] flex flex-col md:flex-row justify-between items-center gap-4">
                     <p className="text-[13px] text-[#94A3B8]">© {new Date().getFullYear()} Rank Tracking SEO TOOL. All rights reserved.</p>
                     <div className="flex items-center gap-6">
-                        <a href="#" className="text-[12px] text-[#94A3B8] hover:text-[#2563EB]">Privacy Policy</a>
-                        <a href="#" className="text-[12px] text-[#94A3B8] hover:text-[#2563EB]">Terms of Service</a>
+                        <Link to="/privacy" className="text-[12px] text-[#94A3B8] hover:text-[#2563EB]">Privacy Policy</Link>
+                        <Link to="/terms" className="text-[12px] text-[#94A3B8] hover:text-[#2563EB]">Terms of Service</Link>
                     </div>
                 </div>
             </footer>
