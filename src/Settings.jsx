@@ -29,9 +29,9 @@ export default function Settings({ userSites = [] }) {
                 console.log('[Checkout] Redirecting to:', res.checkoutUrl)
                 window.location.href = res.checkoutUrl
             } else {
-                const errorDetail = res?.error || res?.message || 'Unknown error'
+                const errorDetail = res?.message || res?.error || 'Unknown error'
                 console.error('[Checkout] Failed to get checkout URL:', res)
-                alert(`Could not generate checkout link: ${errorDetail}. Please check if your API keys are configured in the dashboard.`)
+                alert(`Checkout Error: ${errorDetail}`)
             }
         } catch (err) {
             console.error('[Checkout] Exception during initiation:', err)
