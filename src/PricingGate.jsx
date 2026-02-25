@@ -17,8 +17,8 @@ export default function PricingGate({ children }) {
                     <p className="text-[14px] text-[#4B5563] mb-8 font-normal leading-relaxed">
                         Your 7-day free trial has expired. To continue tracking your keywords and analyzing search performance, please upgrade your plan.
                     </p>
-                    <Link to="/pricing" className="block w-full py-3.5 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[15px] font-medium rounded-xl transition-all shadow-sm">
-                        View Pricing Plans
+                    <Link to="/settings" className="block w-full py-3.5 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[15px] font-medium rounded-xl transition-all shadow-sm">
+                        View Upgrade Options
                     </Link>
                 </div>
             </div>

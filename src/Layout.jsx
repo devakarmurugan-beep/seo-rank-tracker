@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Key, FileText, BarChart3, ChevronDown, Globe, Calendar, Bell, BarChart2, Rows3, Rows4, Plus, X, Loader2 } from 'lucide-react'
+import { LayoutDashboard, Key, FileText, BarChart3, ChevronDown, Globe, Calendar, Bell, BarChart2, Rows3, Rows4, Plus, X, Loader2, Settings as SettingsIcon, LogOut } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { fetchAvailableGSCSites, addProjectSite } from './lib/api'
 import { canAddSite, getSiteLimit } from './lib/permissions'
@@ -91,7 +91,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                 alert(`Your plan is limited to ${getSiteLimit(session.user)} website(s). Please upgrade to add more.`)
                 setAddingSiteUrl(null)
                 setIsAddProjectOpen(false)
-                navigate('/pricing')
+                navigate('/settings')
                 return
             }
 
@@ -233,7 +233,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                     )}
                 </div>
                 <nav className="flex-1 px-3 mt-6 space-y-1">
-                    {[{ id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' }, { id: 'keywords', icon: Key, label: 'Keywords' }, { id: 'pages', icon: FileText, label: 'Pages' }, { id: 'reports', icon: BarChart2, label: 'Reports' }].map((item) => {
+                    {[{ id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' }, { id: 'keywords', icon: Key, label: 'Keywords' }, { id: 'pages', icon: FileText, label: 'Pages' }, { id: 'reports', icon: BarChart2, label: 'Reports' }, { id: 'settings', icon: SettingsIcon, label: 'Settings' }].map((item) => {
                         const Icon = item.icon
                         const isActive = activePage === item.id
                         return (<Link to={`/${item.id}`} key={item.id} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium ${isActive ? 'bg-[#2563EB] text-white shadow-[0_2px_8px_rgba(37,99,235,0.3)]' : 'text-[#94A3B8] hover:bg-white/5 hover:text-white'}`}><Icon className="w-[18px] h-[18px]" />{item.label}</Link>)
@@ -257,10 +257,19 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                         </>
                     )}
                     <button
-                        onClick={() => navigate('/pricing')}
-                        className="w-full py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-semibold rounded-lg transition-colors cursor-pointer"
+                        onClick={() => navigate('/settings')}
+                        className="w-full py-2 bg-[#1E293B] hover:bg-[#334155] text-white text-[12px] font-semibold rounded-lg transition-colors cursor-pointer border border-white/5"
                     >
-                        {isTrial ? 'Upgrade Now' : 'Manage Subscription'}
+                        {isTrial ? 'Upgrade Now' : 'Manage Plans'}
+                    </button>
+                </div>
+                <div className="px-3 pb-3">
+                    <button
+                        onClick={() => { supabase.auth.signOut(); navigate('/login') }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium text-[#94A3B8] hover:bg-[#DC2626]/10 hover:text-[#EF4444] transition-all cursor-pointer"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        Log Out
                     </button>
                 </div>
             </div>

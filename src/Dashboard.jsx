@@ -1,4 +1,4 @@
-import { Key, FileText, TrendingUp, TrendingDown, MousePointerClick, Target, Plus, Clock, UserPlus, ChevronRight, RefreshCw, Trophy, CircleCheck, TriangleAlert, ArrowDown, Globe, BarChart3 } from 'lucide-react'
+import { Key, FileText, TrendingUp, TrendingDown, MousePointerClick, Target, Plus, Clock, UserPlus, ChevronRight, RefreshCw, Trophy, CircleCheck, TriangleAlert, ArrowDown, Globe, BarChart3, X } from 'lucide-react'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
 import { trendData, distributionData, topGainers, topLosers, intentData } from './data'
 
@@ -13,9 +13,13 @@ const getPosBadge = (pos) => {
 
 const distIcons = { trophy: Trophy, circleCheck: CircleCheck, triangleAlert: TriangleAlert, arrowDown: ArrowDown }
 
+import { useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 
 export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData }) {
+    const location = useLocation()
+    const query = new URLSearchParams(location.search)
+    const isPaymentSuccess = query.get('payment') === 'success'
     const cp = compact
 
     // ═══ DATE RANGE FILTERING ═══
@@ -205,6 +209,22 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
 
     return (
         <div>
+            {isPaymentSuccess && (
+                <div className="mb-6 bg-gradient-to-r from-[#059669] to-[#10B981] p-4 rounded-xl text-white shadow-lg flex items-center justify-between animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                            <Trophy className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-[15px] font-bold">Subscription Activated!</p>
+                            <p className="text-[12px] opacity-90">Your account has been upgraded successfully. Welcome to the team!</p>
+                        </div>
+                    </div>
+                    <button onClick={() => window.history.replaceState({}, '', window.location.pathname)} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
             {/* ═══ PRIMARY: KPI Metric Cards — 36px / 600 ═══ */}
             <div className={`grid grid-cols-4 gap-5 ${cp ? 'mb-4' : 'mb-8'}`}>
                 {[

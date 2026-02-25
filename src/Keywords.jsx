@@ -810,7 +810,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                                     <div className="flex flex-col items-center justify-center gap-2">
                                                         <p className="text-[13px] text-[#6B7280] font-medium">Currently viewing 25 restricted keywords from GSC.</p>
                                                         <button
-                                                            onClick={() => navigate('/pricing')}
+                                                            onClick={() => navigate('/settings')}
                                                             className="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-bold rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
                                                         >
                                                             Load all keywords & unlock tracking
@@ -1229,7 +1229,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                                                 {isTrial && (selectedData?.keywords || []).length > 25 && (
                                                                     <tr>
                                                                         <td colSpan="6" className="px-5 py-4 text-center bg-[#F9FAFB]">
-                                                                            <p className="text-[12px] text-[#6B7280]">Trial limited to Top 25 keywords. <button onClick={() => navigate('/pricing')} className="text-[#2563EB] font-semibold hover:underline">Upgrade to see all {(selectedData?.keywords || []).length} keywords</button></p>
+                                                                            <p className="text-[12px] text-[#6B7280]">Trial limited to Top 25 keywords. <button onClick={() => navigate('/settings')} className="text-[#2563EB] font-semibold hover:underline">Upgrade to see all {(selectedData?.keywords || []).length} keywords</button></p>
                                                                         </td>
                                                                     </tr>
                                                                 )}

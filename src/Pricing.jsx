@@ -18,32 +18,10 @@ export default function Pricing() {
     const isProd = window.location.hostname.includes('seoranktrackingtool.com')
     const APP_URL = isProd ? 'https://app.seoranktrackingtool.com' : window.location.origin
 
-    const handleSelectPlan = async (planId) => {
-        if (!session) {
-            window.location.href = `${APP_URL}/signup`
-            return
-        }
-
-        setIsUpdating(true)
-        try {
-            const checkoutData = await createSubscription(session.user.id, session.user.email, planId)
-
-            if (checkoutData.error) {
-                throw new Error(checkoutData.error)
-            }
-
-            if (checkoutData.checkoutUrl) {
-                // Redirect user to the secure Dodo Payments checkout UI
-                window.location.href = checkoutData.checkoutUrl
-            } else {
-                throw new Error('Failed to generate checkout URL')
-            }
-        } catch (err) {
-            console.error('Failed to update plan:', err)
-            alert('Failed to update plan. Please try again.')
-        } finally {
-            setIsUpdating(false)
-        }
+    const handleSelectPlan = (planId) => {
+        // Always redirect to the authenticated app subdomain's settings page
+        // Settings.jsx will handle the actual checkout creation.
+        window.location.href = `${APP_URL}/settings?plan=${planId}`
     }
 
     return (

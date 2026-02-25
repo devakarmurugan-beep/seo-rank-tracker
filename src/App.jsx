@@ -16,6 +16,7 @@ import Pricing from './Pricing'
 import PricingGate from './PricingGate'
 import Privacy from './Privacy'
 import Terms from './Terms'
+import Settings from './Settings'
 import { getUserPlan } from './lib/permissions'
 
 function App() {
@@ -82,12 +83,13 @@ function App() {
       }
     }
 
-    // 2. If on app: Redirect / to /dashboard. Force marketing paths to WWW.
+    // 2. If on app: Redirect / to /dashboard.
     if (isAppSubdomain) {
       if (path === '/' || path === '/home') {
         window.location.replace(`${APP_DOMAIN}/dashboard`)
-      } else if (path === '/pricing') {
-        window.location.replace(`${MAIN_DOMAIN}/pricing`)
+      } else if (path.toLowerCase() === '/pricing') {
+        // Logged in users on app subdomain should see /settings instead of /pricing
+        navigate('/settings')
       }
     }
   }, [location.pathname, isAppSubdomain, isProd, !!session])
@@ -347,6 +349,7 @@ function App() {
             <p className="text-[13px] text-[#4B5563] max-w-sm text-center font-normal">Automated white-label client reporting is currently under development.</p>
           </div>
         } />
+        <Route path="/settings" element={<Settings userSites={userSites} />} />
       </Route>
 
       {/* Public Authentication Routes */}
