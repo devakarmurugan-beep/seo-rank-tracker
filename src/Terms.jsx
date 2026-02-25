@@ -77,6 +77,11 @@ export default function Terms() {
                         <h2 className="text-[20px] font-bold text-[#111827] mb-2">Termination</h2>
                         <p className="text-[14px]">We reserve the right to terminate or suspend access to our Service immediately, without prior notice, for any reason whatsoever, including breach of Terms.</p>
                     </section>
+
+                    <section className="pt-10 border-t border-[#F1F5F9]">
+                        <h2 className="text-[20px] font-bold text-[#111827] mb-2">Contact Us</h2>
+                        <p className="text-[14px]">For any questions regarding these Terms, please contact us at <span className="font-bold text-[#2563EB]">gamefellow007@gmail.com</span></p>
+                    </section>
                 </div>
             </main>
 

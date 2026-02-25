@@ -89,7 +89,7 @@ export default function Privacy() {
 
                     <section className="pt-10 border-t border-[#F1F5F9]">
                         <h2 className="text-[20px] font-bold text-[#111827] mb-2">Contact Us</h2>
-                        <p className="text-[14px]">If you have questions about this policy, contact us at <span className="font-bold text-[#2563EB]">support@seoranktrackingtool.com</span></p>
+                        <p className="text-[14px]">If you have questions about this policy, contact us at <span className="font-bold text-[#2563EB]">gamefellow007@gmail.com</span></p>
                     </section>
                 </div>
             </main>
