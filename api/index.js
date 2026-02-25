@@ -36,6 +36,7 @@ app.get('/api/health', (req, res) => {
     if (!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) missing.push('VITE_SUPABASE_SERVICE_ROLE_KEY')
     if (!process.env.GCP_CLIENT_ID) missing.push('GCP_CLIENT_ID')
     if (!process.env.GCP_CLIENT_SECRET) missing.push('GCP_CLIENT_SECRET')
+    if (!process.env.DODO_PAYMENTS_API_KEY) missing.push('DODO_PAYMENTS_API_KEY')
 
     res.json({
         status: 'Platform API is active',

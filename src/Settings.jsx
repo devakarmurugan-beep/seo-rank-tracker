@@ -19,17 +19,22 @@ export default function Settings({ userSites = [] }) {
         if (loading) return
         setLoading(true)
         try {
-            console.log(`[Checkout] Initiating for ${planId} for user ${session?.user.email}`)
-            const res = await createSubscription(session?.user.id, session?.user.email, planId)
-            if (res.checkoutUrl) {
+            console.log(`[Checkout] Initiating for plan: ${planId} for user: ${session?.user?.email}`)
+            const res = await createSubscription(session?.user?.id, session?.user?.email, planId)
+
+            console.log('[Checkout] API Response:', res)
+
+            if (res && res.checkoutUrl) {
+                console.log('[Checkout] Redirecting to:', res.checkoutUrl)
                 window.location.href = res.checkoutUrl
             } else {
-                console.error('[Checkout] Error response:', res)
-                alert('Could not generate checkout link. Please try again.')
+                const errorDetail = res?.error || res?.message || 'Unknown error'
+                console.error('[Checkout] Failed to get checkout URL:', res)
+                alert(`Could not generate checkout link: ${errorDetail}. Please check if your API keys are configured in the dashboard.`)
             }
         } catch (err) {
-            console.error('[Checkout] Exception:', err)
-            alert('Error generating checkout.')
+            console.error('[Checkout] Exception during initiation:', err)
+            alert(`Error generating checkout: ${err.message}`)
         } finally {
             setLoading(false)
         }
@@ -37,12 +42,17 @@ export default function Settings({ userSites = [] }) {
 
     // Auto-trigger if plan is in URL
     useEffect(() => {
+        if (!session || loading) return
+
         const params = new URLSearchParams(location.search)
-        const plan = params.get('plan')
-        if (plan && session) {
-            // Clean up URL and trigger
+        const planFromUrl = params.get('plan')
+
+        if (planFromUrl) {
+            console.log(`[Settings] Detected plan in URL: ${planFromUrl}. Triggering checkout...`)
+            // Clean up URL without triggering re-render if possible, or just replace
+            // window.history.replaceState({}, '', window.location.pathname)
             navigate('/settings', { replace: true })
-            handleUpgrade(plan)
+            handleUpgrade(planFromUrl)
         }
     }, [location.search, !!session])
 

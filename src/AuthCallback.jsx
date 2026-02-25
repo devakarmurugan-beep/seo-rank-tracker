@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { BarChart3, CheckCircle2, Loader2 } from 'lucide-react'
 
 export default function AuthCallback() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [status, setStatus] = useState('Authenticating and linking your Google account...')
 
     useEffect(() => {
+        const query = new URLSearchParams(location.search)
+        const finalRedirect = query.get('redirect') || '/dashboard'
+
         const processCallback = async () => {
             try {
                 // Supabase client automatically processes the URL hash on load.
@@ -50,8 +54,7 @@ export default function AuthCallback() {
                 }
 
                 setStatus('Success! Redirecting to your dashboard...')
-                const redirectPath = '/dashboard'
-                setTimeout(() => navigate(redirectPath), 2000)
+                setTimeout(() => navigate(finalRedirect), 2000)
 
             } catch (err) {
                 console.error('OAuth Callback Error:', err)

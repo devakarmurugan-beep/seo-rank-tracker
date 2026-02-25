@@ -50,7 +50,7 @@ export default function Signup() {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${APP_DOMAIN}/dashboard`,
+                    redirectTo: `${APP_DOMAIN}/auth/callback`,
                 }
             })
             if (error) throw error
@@ -114,7 +114,7 @@ export default function Signup() {
             <div className="flex-1 flex items-center justify-center p-8 sm:p-12 relative overflow-y-auto">
                 <div className="w-full max-w-[400px]">
 
-                    <div className="mb-10 text-center lg:text-left">
+                    <div className="mb-10 text-center lg:text-left text-center">
                         <h1 className="text-[28px] font-bold text-[#111827] tracking-tight mb-2">Create an account</h1>
                         <p className="text-[#64748B] text-[14px]">No credit card required to start your functional trial.</p>
                     </div>
@@ -203,7 +203,7 @@ export default function Signup() {
                     )}
 
                     <p className="mt-8 text-center text-[13px] text-[#64748B]">
-                        Already have an account? <Link to="/login" className="font-semibold text-[#2563EB] hover:text-[#1D4ED8]">Sign in here</Link>
+                        Already have an account? <a href={`${APP_DOMAIN}/login`} className="font-bold text-[#2563EB] hover:text-[#1D4ED8] underline underline-offset-4">Sign in here</a>
                     </p>
                 </div>
             </div>

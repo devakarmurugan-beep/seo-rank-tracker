@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { Mail, Lock, ArrowRight, Github } from 'lucide-react'
 import { LogoIcon } from './components/Logo'
 
 export default function Login() {
     const navigate = useNavigate()
+    const location = useLocation()
+    const query = new URLSearchParams(location.search)
+    const redirectPath = query.get('redirect') || '/dashboard'
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
@@ -23,7 +26,7 @@ export default function Login() {
         try {
             const { error } = await supabase.auth.signInWithPassword({ email, password })
             if (error) throw error
-            navigate('/dashboard')
+            navigate(redirectPath)
         } catch (err) {
             setError(err.message || 'Failed to authenticate')
         } finally {
@@ -44,7 +47,7 @@ export default function Login() {
                         prompt: 'consent',
                         include_granted_scopes: 'true'
                     },
-                    redirectTo: `${APP_DOMAIN}/auth/callback?openAddProject=true`,
+                    redirectTo: `${APP_DOMAIN}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`,
                 }
             })
             if (error) throw error
@@ -181,7 +184,7 @@ export default function Login() {
                     </form>
 
                     <p className="mt-8 text-center text-[13px] text-[#64748B]">
-                        Don't have an account? <Link to="/signup" className="font-semibold text-[#2563EB] hover:text-[#1D4ED8]">Start 7-day free trial</Link>
+                        Don't have an account? <a href={`${APP_DOMAIN}/signup`} className="font-bold text-[#2563EB] hover:text-[#1D4ED8] underline underline-offset-4">Start 7-day free trial</a>
                     </p>
                 </div>
             </div>
