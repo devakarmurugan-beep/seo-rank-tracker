@@ -32,17 +32,23 @@ const getSupabaseAdmin = () => {
 
 app.get('/api/health', (req, res) => {
     const missing = []
-    if (!process.env.VITE_SUPABASE_URL) missing.push('VITE_SUPABASE_URL')
-    if (!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) missing.push('VITE_SUPABASE_SERVICE_ROLE_KEY')
-    if (!process.env.GCP_CLIENT_ID) missing.push('GCP_CLIENT_ID')
-    if (!process.env.GCP_CLIENT_SECRET) missing.push('GCP_CLIENT_SECRET')
-    if (!process.env.DODO_PAYMENTS_API_KEY) missing.push('DODO_PAYMENTS_API_KEY')
+    const check = {
+        VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+        VITE_SUPABASE_SERVICE_ROLE_KEY: !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+        GCP_CLIENT_ID: !!process.env.GCP_CLIENT_ID,
+        DODO_PAYMENTS_API_KEY: !!process.env.DODO_PAYMENTS_API_KEY,
+    }
+
+    const mask = (val) => val ? `${val.substring(0, 4)}...${val.substring(val.length - 4)}` : 'MISSING'
 
     res.json({
         status: 'Platform API is active',
         time: new Date().toISOString(),
-        config: missing.length === 0 ? 'COMPLETE' : 'INCOMPLETE',
-        missing_vars: missing
+        config: Object.values(check).every(v => v) ? 'COMPLETE' : 'INCOMPLETE',
+        verification: {
+            dodo_key: mask(process.env.DODO_PAYMENTS_API_KEY),
+            supabase_url: mask(process.env.VITE_SUPABASE_URL),
+        }
     })
 })
 

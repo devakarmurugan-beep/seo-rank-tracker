@@ -49,14 +49,14 @@ router.post('/create-checkout', async (req, res) => {
 
         const returnUrl = (process.env.GCP_REDIRECT_URI?.replace('/auth/callback', '') || 'http://localhost:5173') + '/dashboard?payment=success'
 
-        console.log(`[Checkout] Connecting to Dodo for Product: ${productId}, User: ${userEmail}`)
+        console.log(`[Checkout] Creating Dodo Session for User: ${userEmail}, Plan: ${planId}, Product: ${productId}`)
 
         // Connect to Dodo Payments create checkout URL
         try {
-            const paymentData = await getDodoClient().payments.create({
+            const payload = {
                 customer: {
                     email: userEmail || '',
-                    name: ''
+                    name: userEmail?.split('@')[0] || 'User'
                 },
                 product_cart: [
                     {
@@ -64,13 +64,18 @@ router.post('/create-checkout', async (req, res) => {
                         quantity: 1
                     }
                 ],
-                // We can pass our app's internal user ID so the webhook knows who paid
                 metadata: {
                     supabase_user_id: userId,
                     plan_id: planId
                 },
                 return_url: returnUrl
-            })
+            }
+
+            console.log('[Checkout] Payload:', JSON.stringify(payload, null, 2))
+
+            const paymentData = await getDodoClient().payments.create(payload)
+
+            console.log('[Checkout] Dodo Success Response:', JSON.stringify(paymentData, null, 2))
 
             // The redirect URL where users enter their credit card
             const checkoutUrl = paymentData.payment_link || (paymentData._links && paymentData._links.payment_link)
