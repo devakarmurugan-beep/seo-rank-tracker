@@ -277,7 +277,7 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
                     { label: 'AVG POSITION', value: isLoadingData ? '...' : avgPosition, change: '', positive: true, icon: Target, iconColor: '#D97706', iconBg: '#FFFBEB' }
                 ].map((card, i) => {
                     const CardIcon = card.icon
-                    return (<div key={i} className={`bg-white rounded-xl ${cp ? 'p-4' : 'p-5'} border border-[#E5E7EB] hover:border-[#D1D5DB] transition-all`} style={{ boxShadow: 'var(--shadow-sm)' }}>
+                    return (<div key={i} className={`premium-card ${cp ? 'p-4' : 'p-5'}`}>
                         <div className="flex items-center justify-between mb-3"><span className="kpi-label text-[11px] font-medium tracking-wider text-[#9CA3AF] uppercase">{card.label}</span><div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: card.iconBg }}><CardIcon className="w-4 h-4" style={{ color: card.iconColor }} /></div></div>
                         <div className="flex items-end gap-3">
                             <span className={`metric-value ${cp ? 'text-[28px]' : 'text-[36px]'} text-[#111827]`}>{card.value}</span>
@@ -292,15 +292,15 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
             </div>
             {/* ═══ SECONDARY: Intent Chart ═══ */}
             <div className={`grid grid-cols-12 gap-5 ${cp ? '' : ''}`}>
-                <div className="col-span-8 space-y-5">
-                    <div className={`bg-white rounded-xl ${cp ? 'p-4' : 'p-6'} border border-[#E5E7EB]`} style={{ boxShadow: 'var(--shadow-sm)' }}>
-                        <div className="flex items-center justify-between mb-6"><div><h3 className="section-title text-[16px] font-semibold text-[#111827]">Keyword Intent</h3><p className="text-[11px] text-[#9CA3AF] mt-0.5 font-normal">Search intent distribution across tracked keywords</p></div><div className="flex items-center gap-4">{realIntentData.map((item) => (<div key={item.name} className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div><span className="text-[11px] text-[#9CA3AF] font-normal">{item.name}</span></div>))}</div></div>
+                <div className="col-span-8 space-y-6">
+                    <div className={`browser-mockup ${cp ? 'p-4' : 'p-6'}`}>
+                        <div className="flex items-center justify-between mb-6 px-2"><div><h3 className="section-title text-[16px] font-semibold text-[#111827]">Keyword Intent</h3><p className="text-[11px] text-[#9CA3AF] mt-0.5 font-normal">Search intent distribution across tracked keywords</p></div><div className="flex items-center gap-4">{realIntentData.map((item) => (<div key={item.name} className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div><span className="text-[11px] text-[#9CA3AF] font-normal">{item.name}</span></div>))}</div></div>
                         <div className={cp ? 'h-[220px]' : 'h-[280px]'}><ResponsiveContainer width="100%" height="100%"><BarChart data={realIntentData} maxBarSize={48} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF', fontFamily: 'var(--font-ui)' }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 11, fill: '#9CA3AF', fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} /><Tooltip content={CustomTooltip} cursor={{ fill: '#F9FAFB' }} /><Bar name="Keywords" dataKey="value" radius={[4, 4, 0, 0]}>{realIntentData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}<LabelList dataKey="value" position="top" fill="#4B5563" fontSize={11} fontWeight={600} fontFamily="var(--font-mono)" offset={8} /></Bar></BarChart></ResponsiveContainer></div>
                     </div>
 
                     {/* ═══ TERTIARY: Gainers / Losers ═══ */}
                     <div className="grid grid-cols-2 gap-5">
-                        <div className={`bg-white rounded-xl ${cp ? 'p-4' : 'p-5'} border border-[#E5E7EB]`} style={{ boxShadow: 'var(--shadow-sm)' }}>
+                        <div className={`premium-card ${cp ? 'p-4' : 'p-5'}`}>
                             <div className="flex items-center gap-2 mb-4"><TrendingUp className="w-4 h-4 text-[#059669]" /><h3 className="section-title text-[14px] font-semibold text-[#111827]">Top Gainers</h3></div>
                             <div className="space-y-0">
                                 {isLoadingData ? (
@@ -315,7 +315,7 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
                                 ))}
                             </div>
                         </div>
-                        <div className={`bg-white rounded-xl ${cp ? 'p-4' : 'p-5'} border border-[#E5E7EB]`} style={{ boxShadow: 'var(--shadow-sm)' }}>
+                        <div className={`premium-card ${cp ? 'p-4' : 'p-5'}`}>
                             <div className="flex items-center gap-2 mb-4"><TrendingDown className="w-4 h-4 text-[#DC2626]" /><h3 className="section-title text-[14px] font-semibold text-[#111827]">Top Losers</h3></div>
                             <div className="space-y-0">
                                 {isLoadingData ? (
@@ -334,15 +334,15 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
                 </div>
 
                 {/* Right Column */}
-                <div className="col-span-4 space-y-5">
-                    <div className={`bg-white rounded-xl ${cp ? 'p-4' : 'p-5'} border border-[#E5E7EB]`} style={{ boxShadow: 'var(--shadow-sm)' }}>
+                <div className="col-span-4 space-y-6">
+                    <div className={`premium-card ${cp ? 'p-4' : 'p-5'}`}>
                         <div className="flex items-center justify-between mb-4"><h3 className="section-title text-[14px] font-semibold text-[#111827]">Keyword Distribution</h3><button onClick={syncSiteData} className="p-1 hover:bg-[#F9FAFB] rounded" title="Sync GSC Data"><RefreshCw className={`w-3.5 h-3.5 text-[#9CA3AF] ${isLoadingData ? 'animate-spin' : ''}`} /></button></div>
                         <div className="h-[180px] relative"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" strokeWidth={3} stroke="#FFFFFF">{distribution.map((e, i) => (<Cell key={i} fill={e.color} />))}</Pie><Tooltip /></PieChart></ResponsiveContainer><div className="absolute inset-0 flex items-center justify-center flex-col"><span className="metric-value text-[24px] text-[#111827]">{totalKeywords.toLocaleString()}</span><span className="text-[10px] font-medium text-[#9CA3AF] tracking-wider uppercase">TOTAL</span></div></div>
                         {/* Section Divider */}
                         <div className="border-t border-[#F3F4F6] my-4"></div>
                         <div className="space-y-2">{distribution.map((item, i) => { const pct = totalKeywords > 0 ? Math.round((item.value / totalKeywords) * 100) : 0; const DIcon = distIcons[item.icon]; return (<div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#F9FAFB] cursor-pointer transition-colors"><div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${item.color}12` }}><DIcon className="w-4 h-4" style={{ color: item.color }} /></div><div className="flex-1"><div className="flex items-center justify-between mb-0.5"><span className="text-[12px] font-medium text-[#111827]">{item.name}</span><span className="text-[12px] font-semibold text-[#111827] tabular-nums">{item.value}</span></div><div className="flex items-center gap-2"><div className="flex-1 h-1.5 rounded-full bg-[#F3F4F6]"><div className="h-full rounded-full transition-all" style={{ backgroundColor: item.color, width: `${pct}%` }}></div></div><span className="text-[10px] font-medium text-[#9CA3AF] w-8 text-right tabular-nums">{pct}%</span></div></div></div>) })}</div>
                     </div>
-                    <div className={`bg-white rounded-xl ${cp ? 'p-4' : 'p-5'} border border-[#E5E7EB]`} style={{ boxShadow: 'var(--shadow-sm)' }}>
+                    <div className={`premium-card ${cp ? 'p-4' : 'p-5'}`}>
                         <h3 className="section-title text-[14px] font-semibold text-[#111827] mb-4">Quick Actions</h3>
                         {/* Section Divider */}
                         <div className="border-t border-[#F3F4F6] -mt-1 mb-3"></div>

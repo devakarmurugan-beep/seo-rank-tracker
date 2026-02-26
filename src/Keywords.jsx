@@ -675,13 +675,13 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                             </div>
                             <h3 className="text-[20px] font-semibold text-[#111827] mb-2 tracking-[-0.01em]">Connect to Search Console</h3>
                             <p className="text-[13px] text-[#4B5563] max-w-sm text-center mb-6 font-normal">Connect your Google Search Console to securely pull your full list of indexing keywords.</p>
-                            <button onClick={handleConnectGSC} className="flex items-center gap-2 px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg shadow-sm transition-colors">
-                                <Globe className="w-4 h-4" />Connect Search Console
+                            <button onClick={() => handleConnectGSC()} className="flex items-center gap-2 px-6 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all">
+                                <Globe className="w-4 h-4" /> Connect Property
                             </button>
                         </div>
                     ) : (
-                        <>
-                            <div className="flex items-center justify-between mb-4">
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Discovered GSC Keywords' : 'All Google Search Console Keywords'}</h2>
                                     {isTrial && <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold rounded-md border border-[#DBEAFE] uppercase tracking-wider">TRIAL MODE</span>}
@@ -691,44 +691,52 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     {isTrial && <span className="text-[11px] text-[#9CA3AF] italic">Upgrade for full data and branded tracking</span>}
                                 </div>
                             </div>
-                            <div className="flex items-start gap-3 p-4 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl mb-5">
-                                <Info className="w-4 h-4 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
+                            <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-[#F8FAFC] to-[#F1F5F9] border border-[#E2E8F0] rounded-2xl mb-6 shadow-sm">
+                                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                    <Info className="w-4 h-4 text-[#2563EB]" />
+                                </div>
                                 <div>
-                                    <p className="text-[13px] text-[#4B5563] font-normal">{isTrial ? 'Trial mode shows all discovered non-branded keywords from GSC.' : 'All Keywords are automatically pulled from Search Console.'}</p>
-                                    {!isTrial && <p className="text-[11px] text-[#9CA3AF] mt-1 font-normal">Add important keywords to <button onClick={() => handleKwTab('tracking')} className="text-[#2563EB] font-medium hover:underline">Tracking Keywords</button> to monitor performance over time.</p>}
+                                    <p className="text-[14px] text-[#334155] font-semibold mb-0.5">{isTrial ? 'Trial View: Discovered GSC Keywords' : 'Organic Intelligence Data'}</p>
+                                    <p className="text-[13px] text-[#64748B] font-normal leading-relaxed">{isTrial ? 'Trial mode shows all discovered non-branded keywords from GSC.' : 'All Keywords are automatically pulled from Search Console daily.'}</p>
+                                    {!isTrial && <p className="text-[12px] text-[#2563EB] mt-2 font-medium">Add to <button onClick={() => handleKwTab('tracking')} className="hover:underline font-bold">Tracking Keywords</button> for historical analysis.</p>}
                                 </div>
                             </div>
-                            <div className={`flex items-center justify-between ${cp ? 'mb-3' : 'mb-4'}`}>
+                            <div className={`premium-card p-4 flex items-center justify-between ${cp ? 'mb-4' : 'mb-6'}`}>
                                 <div className="flex items-center gap-3">
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1.5 p-1 bg-[#F1F5F9] rounded-xl border border-[#E2E8F0]">
                                         {['All', 'Top 3', '4-10', '11-20', '20+'].map((f) => (
-                                            <button key={f} onClick={() => handlePosFilter(f)} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium ${posFilter === f ? 'bg-[#EFF6FF] text-[#2563EB] border border-[#2563EB]/20' : 'text-[#9CA3AF] hover:bg-[#F9FAFB] border border-transparent'}`}>{f}</button>
+                                            <button key={f} onClick={() => handlePosFilter(f)} className={`px-4 py-1.5 rounded-lg text-[12px] font-bold transition-all ${posFilter === f ? 'bg-white text-[#2563EB] shadow-sm' : 'text-[#64748B] hover:text-[#111827]'}`}>{f}</button>
                                         ))}
                                     </div>
-                                    <div className="w-px h-5 bg-[#E5E7EB]"></div>
-                                    <div className="relative flex items-center gap-2">
-                                        <MapPin className="w-4 h-4 text-[#9CA3AF]" />
+                                    <div className="w-px h-6 bg-[#E5E7EB] mx-1"></div>
+                                    <div className="relative group">
+                                        <MapPin className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2 z-10" />
                                         <select
                                             value={selectedCountryFilter}
                                             onChange={(e) => setSelectedCountryFilter(e.target.value)}
-                                            className="appearance-none pl-3 pr-8 py-1.5 border border-[#E5E7EB] rounded-lg text-[12px] font-medium text-[#4B5563] bg-white cursor-pointer hover:border-[#D1D5DB] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20"
+                                            className="appearance-none pl-10 pr-10 py-2 border border-[#E5E7EB] rounded-xl text-[13px] font-semibold text-[#334155] bg-white cursor-pointer hover:border-[#D1D5DB] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/5 transition-all w-[180px]"
                                         >
-                                            <option value="All">All Countries</option>
+                                            <option value="All">All Regions</option>
                                             {meaningfulLocations.map(loc => {
                                                 const countryCode = loc?.countryCode || 'Unknown';
                                                 const cInfo = gscCountryMap[countryCode] || { name: countryCode.toUpperCase(), emoji: '🌍' }
                                                 return <option key={countryCode} value={countryCode}>{cInfo.name}</option>
                                             })}
                                         </select>
-                                        <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF] pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+                                        <ChevronDown className="w-4 h-4 text-[#9CA3AF] pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 group-hover:text-[#4B5563] transition-colors" />
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" /><input type="text" placeholder="Search keywords..." value={allKwSearch} onChange={(e) => setAllKwSearch(e.target.value)} className="pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 w-[240px] bg-white" /></div>
-                                    <span className="text-[11px] text-[#9CA3AF] font-normal tabular-nums">Top 5,000 by impressions</span>
+                                <div className="flex items-center gap-4">
+                                    <div className="relative group min-w-[280px]">
+                                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] group-focus-within:text-[#2563EB] transition-colors" />
+                                        <input type="text" placeholder="Filter discovered keywords..." value={allKwSearch} onChange={(e) => setAllKwSearch(e.target.value)} className="pl-11 pr-4 py-2.5 border border-[#E5E7EB] rounded-xl text-[13px] font-medium placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/5 w-full bg-white hover:border-[#D1D5DB] transition-all" />
+                                    </div>
+                                    <div className="px-3 py-1.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[11px] font-bold text-[#64748B] uppercase tracking-wider tabular-nums">
+                                        5K Limit
+                                    </div>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
+                            <div className="premium-card overflow-hidden">
                                 <table className="w-full">
                                     <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
                                         <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
@@ -829,7 +837,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     setItemsPerPage={setItemsPerPage}
                                 />
                             </div>
-                        </>
+                        </div>
                     )}
                 </div>
             )}

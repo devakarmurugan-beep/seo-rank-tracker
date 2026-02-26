@@ -50,9 +50,10 @@
     --border-hover: #D1D5DB;
 
     /* ── Elevation System (3 levels) ── */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.02);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --border-premium: #E2E8F0;
 
     /* ── Rank Buckets ── */
     --rank-1-3-bg: #DCFCE7;
@@ -256,10 +257,56 @@ tbody tr:hover td:first-child {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: var(--border-hover);
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--border-hover);
+    background: #9CA3AF;
+}
+
+/* ══════════════════════════════════════════════════════
+   PREMIUM UI ENHANCEMENTS
+   ══════════════════════════════════════════════════════ */
+
+.premium-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-premium);
+    box-shadow: var(--shadow-sm);
+    border-radius: 12px;
+    transition: transform var(--duration-normal) var(--ease), box-shadow var(--duration-normal) var(--ease);
+}
+
+.premium-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.browser-mockup {
+    position: relative;
+    padding-top: 32px;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-premium);
+    box-shadow: var(--shadow-lg);
+}
+
+.browser-mockup::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #FF5F56;
+    box-shadow: 16px 0 0 #FFBD2E, 32px 0 0 #27C93F;
+}
+
+.glass-pill {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: var(--shadow-sm);
 }

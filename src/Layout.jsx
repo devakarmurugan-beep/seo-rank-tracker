@@ -156,10 +156,10 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
     }
 
     return (
-        <div className={`flex h-screen bg-[#F9FAFB] overflow-hidden ${c ? 'compact' : ''}`} style={{ fontFamily: "var(--font-ui)" }}>
+        <div className={`flex h-screen bg-[#F8FAFC] overflow-hidden ${c ? 'compact' : ''}`} style={{ fontFamily: "var(--font-ui)" }}>
             {/* Sidebar */}
-            <div className="w-[256px] bg-[#0F172A] flex flex-col flex-shrink-0">
-                <div className="p-5 border-b border-white/10">
+            <div className="w-[260px] bg-[#0F172A] flex flex-col flex-shrink-0 shadow-2xl z-20">
+                <div className="p-6 border-b border-white/5 bg-[#0F172A]">
                     <Link to="/" className="flex items-center gap-3 group">
                         <LogoIcon className="w-9 h-9" color="white" />
                         <div>
@@ -188,17 +188,17 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                             <button
                                 onClick={() => setIsSiteDropdownOpen(!isSiteDropdownOpen)}
                                 disabled={isLoadingData}
-                                className={`w-full p-3 bg-white/5 rounded-lg flex items-center justify-between transition-colors ${isLoadingData ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10'}`}
+                                className={`w-full p-3.5 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between transition-all ${isLoadingData ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10 hover:border-white/20'}`}
                             >
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded bg-[#059669] flex items-center justify-center text-white text-[11px] font-semibold">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#059669] to-[#10B981] flex items-center justify-center text-white text-[12px] font-bold shadow-sm">
                                         {activeSite ? activeSite.site_name?.charAt(0).toUpperCase() || 'S' : 'S'}
                                     </div>
-                                    <span className="text-white text-[14px] font-medium truncate max-w-[130px]">
+                                    <span className="text-white text-[14px] font-semibold truncate max-w-[130px]">
                                         {isLoadingData ? 'Loading...' : (activeSite?.site_name || 'Select Site')}
                                     </span>
                                 </div>
-                                <ChevronDown className="w-4 h-4 text-[#64748B]" />
+                                <ChevronDown className={`w-4 h-4 text-[#64748B] transition-transform duration-200 ${isSiteDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
 
                             {isSiteDropdownOpen && (
@@ -275,10 +275,10 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden bg-[#F8FAFC]">
                 {/* Top Bar */}
-                <div className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-6 flex-shrink-0">
-                    <h1 className="text-[20px] font-semibold text-[#111827] tracking-[-0.01em] capitalize">{activePage === 'pages' ? 'Page Tracking' : activePage}</h1>
+                <div className="h-16 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-8 flex-shrink-0 z-10 shadow-sm">
+                    <h1 className="text-[18px] font-bold text-[#111827] tracking-tight capitalize">{activePage === 'pages' ? 'Page Tracking' : activePage}</h1>
                     <div className="flex items-center gap-3">
                         {/* Compact Mode Toggle */}
                         <button onClick={() => setCompactMode(!c)} className={`p-2 rounded-lg border transition-colors ${c ? 'bg-[#EFF6FF] border-[#2563EB]/30 text-[#2563EB]' : 'border-[#E5E7EB] text-[#9CA3AF] hover:text-[#4B5563] hover:border-[#D1D5DB]'}`} title={c ? 'Normal density' : 'Compact density'}>

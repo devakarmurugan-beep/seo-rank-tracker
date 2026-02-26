@@ -87,12 +87,12 @@ export default function Settings({ userSites = [] }) {
 
     return (
         <div className="max-w-4xl mx-auto py-8">
-            <h1 className="text-[28px] font-bold text-[#111827] mb-8 tracking-tight">Settings</h1>
+            <h1 className="text-[32px] font-bold text-[#111827] mb-10 tracking-tight">Settings</h1>
 
-            <div className="space-y-6">
+            <div className="space-y-8">
                 {/* Billing Section */}
-                <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden shadow-sm">
-                    <div className="p-6 border-b border-[#F3F4F6] flex items-center justify-between">
+                <div className="premium-card overflow-hidden">
+                    <div className="p-8 border-b border-[#F1F5F9] flex items-center justify-between bg-gradient-to-r from-white to-[#F8FAFC]">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] flex items-center justify-center">
                                 <CreditCard className="w-5 h-5 text-[#2563EB]" />
@@ -154,16 +154,16 @@ export default function Settings({ userSites = [] }) {
                                 return (
                                     <div
                                         key={plan.id}
-                                        className={`relative p-5 rounded-xl border-2 transition-all ${isActive ? 'border-[#2563EB] bg-[#F8FAFF]' : 'border-[#F1F5F9] bg-white hover:border-[#E2E8F0]'}`}
+                                        className={`relative p-6 rounded-2xl border-2 transition-all duration-300 ${isActive ? 'border-[#2563EB] bg-[#F8FAFF] shadow-[0_0_0_4px_rgba(37,99,235,0.05)]' : 'border-[#F1F5F9] bg-white hover:border-[#E2E8F0] hover:shadow-md'}`}
                                     >
-                                        {plan.popular && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#2563EB] text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Popular</span>}
-                                        <div className="text-[14px] font-bold text-[#111827] mb-1">{plan.name}</div>
-                                        <div className="flex items-baseline gap-0.5 mb-1">
-                                            <span className="text-[20px] font-bold text-[#111827]">${billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice}</span>
-                                            <span className="text-[11px] text-[#64748B]">/mo</span>
+                                        {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2563EB] text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg shadow-blue-500/20">Popular Choice</span>}
+                                        <div className="text-[15px] font-bold text-[#111827] mb-1">{plan.name}</div>
+                                        <div className="flex items-baseline gap-1 mb-1">
+                                            <span className="text-[28px] font-bold text-[#111827]">${billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice}</span>
+                                            <span className="text-[13px] text-[#64748B] font-medium">/mo</span>
                                         </div>
-                                        <div className="text-[10px] text-[#94A3B8] mb-4 h-4">
-                                            {billingCycle === 'yearly' ? `Billed $${plan.yearlyPrice * 12}/yr` : 'Billed monthly'}
+                                        <div className="text-[11px] font-medium text-[#94A3B8] mb-5 h-4">
+                                            {billingCycle === 'yearly' ? `Billed $${plan.yearlyPrice * 12}/year` : 'Billed month-to-month'}
                                         </div>
                                         <ul className="space-y-2 mb-6">
                                             <li className="flex items-center gap-1.5 text-[11px] text-[#475569]">
@@ -198,8 +198,8 @@ export default function Settings({ userSites = [] }) {
                 </div>
 
                 {/* Account Security */}
-                <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-6">
+                <div className="premium-card p-8">
+                    <div className="flex items-center gap-4 mb-8">
                         <div className="w-10 h-10 rounded-xl bg-[#F0FDF4] flex items-center justify-center">
                             <Shield className="w-5 h-5 text-[#10B981]" />
                         </div>
