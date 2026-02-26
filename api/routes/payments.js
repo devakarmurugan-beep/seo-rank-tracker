@@ -56,7 +56,7 @@ router.post('/create-checkout', async (req, res) => {
             const payload = {
                 billing: {
                     city: '',
-                    country: '',
+                    country: 'US',
                     state: '',
                     street: '',
                     zipcode: ''
