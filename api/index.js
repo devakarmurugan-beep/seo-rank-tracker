@@ -669,7 +669,7 @@ app.get('/api/gsc/trial-keywords', async (req, res) => {
         const allKeywords = sorted.map(kw => ({
             ...kw,
             intent: classifyKeywordIntent(kw.keyword, brandVars),
-            is_tracked: true,
+            is_tracked: false,
             category: 'Trial View'
         }))
 

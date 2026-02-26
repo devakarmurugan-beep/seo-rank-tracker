@@ -116,12 +116,21 @@ function App() {
 
       let keywords = [];
       if (isTrial) {
-        keywords = await fetchTrialKeywords(site.id);
-        // Fallback to database if GSC live fetch returned nothing but DB has tracked keywords
-        if (keywords.length === 0) {
-          console.log("[App] Trial discovery empty, falling back to DB keywords");
-          keywords = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
-        }
+        const [trialDiscovered, dbTracked] = await Promise.all([
+          fetchTrialKeywords(site.id),
+          fetchTrackedKeywordsWithHistory(site.id, currentRange)
+        ]);
+
+        // Merge them: DB Tracked (is_tracked: true) + Discovery (is_tracked: false)
+        const trackedMap = new Map(dbTracked.map(k => [k.keyword, k]));
+        const merged = [...dbTracked];
+
+        trialDiscovered.forEach(tk => {
+          if (!trackedMap.has(tk.keyword)) {
+            merged.push({ ...tk, is_tracked: false }); // Ensure they are marked untracked
+          }
+        });
+        keywords = merged;
       } else {
         keywords = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
       }
