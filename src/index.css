@@ -282,26 +282,42 @@ tbody tr:hover td:first-child {
     transform: translateY(-2px);
 }
 
+.anti-gravity-shadow {
+    box-shadow:
+        0 10px 20px -5px rgba(0, 0, 0, 0.04),
+        0 20px 40px -10px rgba(0, 0, 0, 0.08),
+        0 40px 60px -15px rgba(0, 0, 0, 0.06);
+}
+
 .browser-mockup {
     position: relative;
     padding-top: 32px;
     background: white;
     border-radius: 12px;
     overflow: hidden;
-    border: 1px solid var(--border-premium);
-    box-shadow: var(--shadow-lg);
+    border: 1px solid #E2E8F0;
+}
+
+.browser-mockup img {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: high-quality;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
 
 .browser-mockup::before {
     content: '';
     position: absolute;
     top: 12px;
-    left: 12px;
-    width: 8px;
-    height: 8px;
+    left: 14px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: #FF5F56;
-    box-shadow: 16px 0 0 #FFBD2E, 32px 0 0 #27C93F;
+    box-shadow: 14px 0 0 #FFBD2E, 28px 0 0 #27C93F;
+    z-index: 20;
 }
 
 .glass-pill {

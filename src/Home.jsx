@@ -20,6 +20,20 @@ export default function Home() {
     const isProd = window.location.hostname.includes('seoranktrackingtool.com')
     const APP_URL = isProd ? 'https://app.seoranktrackingtool.com' : window.location.origin
 
+    const ProductMockup = ({ src, alt, className = "" }) => (
+        <div className={`p-4 md:p-8 bg-transparent ${className}`}>
+            <div className="browser-mockup anti-gravity-shadow group">
+                <div className="h-8 border-b border-[#F1F5F9] bg-white hidden md:block"></div>
+                <img
+                    src={src}
+                    alt={alt}
+                    className="w-full h-auto transition-all duration-700"
+                    loading="lazy"
+                />
+            </div>
+        </div>
+    )
+
     return (
         <div className="min-h-screen bg-white font-sans selection:bg-[#2563EB] selection:text-white overflow-x-hidden">
             {/* Nav */}
@@ -73,21 +87,12 @@ export default function Home() {
                     </div>
 
                     {/* Dashboard Mockup Preview */}
-                    <div className="relative mx-auto max-w-5xl rounded-3xl border border-[#E2E8F0] bg-white p-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden animate-fade-in-up">
-                        <div className="rounded-2xl border border-[#F1F5F9] bg-[#F8FAFC] overflow-hidden relative group">
-                            <div className="h-8 border-b border-[#E2E8F0] bg-white flex items-center px-4 gap-1.5 sticky top-0 z-10">
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]"></div>
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></div>
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></div>
-                                <div className="ml-4 h-4 w-32 bg-[#F1F5F9] rounded-md"></div>
-                            </div>
-                            <img
-                                src={mainDashboardScreenshot}
-                                alt="SEO Rank Tracking Dashboard Overview"
-                                className="w-full h-auto grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent pointer-events-none"></div>
-                        </div>
+                    <div className="max-w-5xl mx-auto mt-6 animate-fade-in-up">
+                        <ProductMockup
+                            src={mainDashboardScreenshot}
+                            alt="SEO Rank Tracking Dashboard Overview"
+                            className="!p-0"
+                        />
                     </div>
                 </div>
             </section>
@@ -137,28 +142,18 @@ export default function Home() {
                                 ))}
                             </ul>
                         </div>
-                        <div className="bg-[#F8FAFC] rounded-3xl p-4 border border-[#E2E8F0] shadow-2xl relative group">
-                            <div className="rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-sm">
-                                <img
-                                    src={keywordsScreenshot}
-                                    alt="Keyword Tracking Dashboard"
-                                    className="w-full h-auto group-hover:scale-[1.02] transition-transform duration-700"
-                                />
-                            </div>
-                        </div>
+                        <ProductMockup
+                            src={keywordsScreenshot}
+                            alt="Keyword Tracking Dashboard"
+                        />
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-16 items-center flex-row-reverse">
                         <div className="order-2 md:order-1">
-                            <div className="bg-[#F8FAFC] rounded-3xl p-4 border border-[#E2E8F0] shadow-2xl group">
-                                <div className="rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-sm">
-                                    <img
-                                        src={rankMatrixScreenshot}
-                                        alt="Historical Rank Matrix"
-                                        className="w-full h-auto group-hover:scale-[1.02] transition-transform duration-700"
-                                    />
-                                </div>
-                            </div>
+                            <ProductMockup
+                                src={rankMatrixScreenshot}
+                                alt="Historical Rank Matrix"
+                            />
                         </div>
                         <div className="order-1 md:order-2">
                             <div className="w-12 h-12 rounded-2xl bg-[#F0FDF4] flex items-center justify-center mb-6">
@@ -195,15 +190,10 @@ export default function Home() {
                                 ))}
                             </ul>
                         </div>
-                        <div className="bg-[#F8FAFC] rounded-3xl p-4 border border-[#E2E8F0] shadow-2xl group">
-                            <div className="rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-sm">
-                                <img
-                                    src={geoScreenshot}
-                                    alt="Global Geographic Intelligence"
-                                    className="w-full h-auto group-hover:scale-[1.02] transition-transform duration-700"
-                                />
-                            </div>
-                        </div>
+                        <ProductMockup
+                            src={geoScreenshot}
+                            alt="Global Geographic Intelligence"
+                        />
                     </div>
                 </div>
             </section>
@@ -242,9 +232,11 @@ export default function Home() {
                             <div className="absolute top-4 right-4 bg-[#F1F5F9] text-[#475569] text-[10px] font-bold px-2 py-1 rounded">Q2 2026</div>
                             <h4 className="text-[18px] font-bold mb-2">Advanced Page-Wise Tracking</h4>
                             <p className="text-[14px] text-[#64748B] mb-6">Analyze organic performance by individual URLs and content types.</p>
-                            <div className="rounded-xl border border-[#F1F5F9] overflow-hidden shadow-sm">
-                                <img src={categoriesScreenshot} alt="Page-Wise Tracking" className="w-full h-auto" />
-                            </div>
+                            <ProductMockup
+                                src={categoriesScreenshot}
+                                alt="Page-Wise Tracking"
+                                className="!p-0 mt-4"
+                            />
                         </div>
                         <div className="p-8 rounded-3xl border border-[#E2E8F0] text-left relative overflow-hidden group hover:border-[#2563EB] transition-colors">
                             <div className="absolute top-4 right-4 bg-[#F1F5F9] text-[#475569] text-[10px] font-bold px-2 py-1 rounded">Q3 2026</div>
@@ -281,7 +273,7 @@ export default function Home() {
                             <div className="w-16 h-16 bg-[#F59E0B]/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
                                 <CheckCircle className="w-8 h-8 text-[#F59E0B]" />
                             </div>
-                            <h4 className="text-[20px) font-bold text-white">Human-First Design</h4>
+                            <h4 className="text-[20px] font-bold text-white">Human-First Design</h4>
                             <p className="text-[14px] text-[#94A3B8] leading-relaxed">Built for busy founders and marketers, not just SEO specialists. Data you can actually understand.</p>
                         </div>
                     </div>
