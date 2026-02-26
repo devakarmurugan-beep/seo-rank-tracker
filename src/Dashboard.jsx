@@ -206,9 +206,52 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
             </div>
         )
     }
+    const formatLastSynced = (date) => {
+        if (!date) return 'Awaiting initial sync...'
+        try {
+            const now = new Date()
+            const synced = new Date(date)
+            const diffMs = now - synced
+            const diffMins = Math.floor(diffMs / 60000)
+
+            if (diffMins < 1) return 'Updated just now'
+            if (diffMins < 60) return `Updated ${diffMins}m ago`
+
+            const diffHours = Math.floor(diffMins / 60)
+            if (diffHours < 24) return `Updated ${diffHours}h ago`
+
+            return `Updated on ${synced.toLocaleDateString()}`
+        } catch (e) {
+            return 'Updated'
+        }
+    }
 
     return (
-        <div>
+        <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-[24px] font-bold text-[#111827] tracking-tight mb-1">Dashboard</h1>
+                    <p className="text-[13px] text-[#4B5563] font-normal">Real-time performance overview for {activeSite?.site_name || 'your site'}.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F0FDF4] border border-[#DCFCE7] rounded-full shadow-sm">
+                        <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></div>
+                        <span className="text-[11px] font-semibold text-[#059669] whitespace-nowrap uppercase tracking-wider">
+                            {formatLastSynced(activeSite?.last_synced_at)}
+                        </span>
+                    </div>
+                    <button
+                        onClick={syncSiteData}
+                        disabled={isLoadingData}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E5E7EB] rounded-lg text-[13px] font-semibold text-[#374151] hover:bg-[#F9FAFB] hover:border-[#D1D5DB] transition-all shadow-sm disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 text-[#4B5563] ${isLoadingData ? 'animate-spin' : ''}`} />
+                        <span>Sync Now</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Rest of the dashboard content ... */}
             {isPaymentSuccess && (
                 <div className="mb-6 bg-gradient-to-r from-[#059669] to-[#10B981] p-4 rounded-xl text-white shadow-lg flex items-center justify-between animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center gap-3">

@@ -157,175 +157,191 @@ app.post('/api/user/add-site', async (req, res) => {
 })
 
 // 3. Sync Site Analytics Data (Keywords, Pages, History)
+const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch = 480) => {
+    // 1. Get Site & Connection Details
+    const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
+    const { data: connection } = await getSupabaseAdmin().from('user_connections').select('refresh_token').eq('user_id', userId).eq('provider', 'google').single()
+
+    if (!site || !connection?.refresh_token) {
+        throw new Error('Site or Google connection not found')
+    }
+
+    // 2. Fetch GSC Data (History + Pages)
+    const today = new Date()
+    const endDateStr = new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+    const startDateStr = new Date(today.getTime() - (daysToFetch * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+
+    const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
+
+    const allHistory = []
+    const allPages = new Set()
+
+    let chunkEnd = new Date(endDateStr)
+    const totalStart = new Date(startDateStr)
+
+    while (chunkEnd > totalStart) {
+        let chunkStart = new Date(chunkEnd.getTime() - (30 * 24 * 60 * 60 * 1000))
+        if (chunkStart < totalStart) chunkStart = totalStart
+
+        const s = chunkStart.toISOString().split('T')[0]
+        const e = chunkEnd.toISOString().split('T')[0]
+
+        const { history, pages } = await fetchGSCRankingData(gscClient, site.property_url, s, e)
+        allHistory.push(...history)
+        pages.forEach(p => allPages.add(p))
+
+        chunkEnd = new Date(chunkStart.getTime() - (1 * 24 * 60 * 60 * 1000))
+    }
+
+    // 3. Process Keywords & Intent
+    const domainClean = site.property_url
+        .replace(/^https?:\/\//, '').replace(/^sc-domain:/, '').replace(/^www\./, '')
+        .replace(/\/.*$/, '').replace(/\.com$|\.in$|\.org$|\.net$|\.co$/g, '').trim().toLowerCase()
+
+    const smartBrandVars = [...brandVariations.map(b => b.toLowerCase())]
+    smartBrandVars.push(domainClean)
+    const suffixes = ['tvservicecenter', 'servicecenter', 'servicecentre', 'services', 'service', 'online', 'india', 'tech', 'digital', 'agency', 'studio', 'media', 'group', 'solutions', 'hq']
+    for (const suffix of suffixes) {
+        if (domainClean.endsWith(suffix) && domainClean.length > suffix.length + 2) {
+            const brandCore = domainClean.slice(0, -suffix.length)
+            smartBrandVars.push(brandCore)
+            break
+        }
+    }
+    const uniqueBrandVars = [...new Set(smartBrandVars)].filter(v => v.length >= 3)
+
+    const keywordMap = {}
+    allHistory.forEach(row => {
+        if (!keywordMap[row.keyword]) {
+            keywordMap[row.keyword] = {
+                site_id: siteId,
+                keyword: row.keyword,
+                intent: classifyKeywordIntent(row.keyword, uniqueBrandVars)
+            }
+        }
+    })
+
+    const keywordList = Object.values(keywordMap)
+    if (keywordList.length > 0) {
+        const { error: kwError } = await getSupabaseAdmin()
+            .from('keywords')
+            .upsert(keywordList, { onConflict: 'site_id, keyword' })
+        if (kwError) throw kwError
+    }
+
+    // Fetch back IDs
+    const { data: savedKeywords } = await getSupabaseAdmin()
+        .from('keywords')
+        .select('id, keyword')
+        .eq('site_id', siteId)
+
+    const kwLookup = {}
+    savedKeywords.forEach(k => kwLookup[k.keyword] = k.id)
+
+    // 4. Process History Snapshots
+    const historyMap = {}
+    allHistory.forEach(row => {
+        const kwId = kwLookup[row.keyword]
+        if (!kwId) return
+        const key = `${kwId}|${row.date}`
+        if (!historyMap[key]) {
+            historyMap[key] = {
+                keyword_id: kwId,
+                date: row.date,
+                position: row.position,
+                impressions: row.impressions,
+                clicks: row.clicks,
+                ctr: row.ctr,
+                page_url: row.page_url
+            }
+        } else {
+            const existing = historyMap[key]
+            existing.impressions += row.impressions
+            existing.clicks += row.clicks
+            if (row.position < existing.position) {
+                existing.position = row.position
+                existing.page_url = row.page_url
+            }
+            existing.ctr = existing.impressions > 0 ? existing.clicks / existing.impressions : 0
+        }
+    })
+
+    const historyPayload = Object.values(historyMap)
+    if (historyPayload.length > 0) {
+        const CHUNK_SIZE = 500
+        for (let i = 0; i < historyPayload.length; i += CHUNK_SIZE) {
+            const chunk = historyPayload.slice(i, i + CHUNK_SIZE)
+            const { error: histError } = await getSupabaseAdmin()
+                .from('keyword_history')
+                .upsert(chunk, { onConflict: 'keyword_id, date' })
+            if (histError) throw histError
+        }
+    }
+
+    // 5. Update Pages Metadata
+    const pages = Array.from(allPages)
+    if (pages.length > 0) {
+        const pagesPayload = pages.map(url => ({ site_id: siteId, page_url: url }))
+        await getSupabaseAdmin().from('pages').upsert(pagesPayload, { onConflict: 'site_id, page_url' })
+    }
+
+    // ═══ CRITICAL: Update last_synced_at timestamp ═══
+    await getSupabaseAdmin()
+        .from('sites')
+        .update({ last_synced_at: new Date().toISOString() })
+        .eq('id', siteId)
+
+    return {
+        totalKeywords: keywordList.length,
+        totalPages: pages.length,
+        historyRecords: historyPayload.length
+    }
+}
+
+// 3. Sync Site Analytics Data (Keywords, Pages, History)
 app.post('/api/user/sync-site-data', async (req, res) => {
     const { userId, siteId, brandVariations = [] } = req.body
     if (!userId || !siteId) return res.status(400).json({ error: 'Missing userId or siteId' })
 
     try {
-        // 1. Get Site & Connection Details
-        const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
-        const { data: connection } = await getSupabaseAdmin().from('user_connections').select('refresh_token').eq('user_id', userId).eq('provider', 'google').single()
-
-        if (!site || !connection?.refresh_token) {
-            return res.status(404).json({ error: 'Site or Google connection not found' })
-        }
-
-        // 2. Fetch GSC Data (History + Pages) — Last 16 months (approx 480 days)
-        // 2. Fetch All Tracked Keywords for this site to prioritize history
-        const { data: currentTracked } = await getSupabaseAdmin()
-            .from('keywords')
-            .select('keyword')
-            .eq('site_id', siteId)
-            .eq('is_tracked', true)
-
-        const today = new Date()
-        const endDateStr = new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
-        const startDateStr = new Date(today.getTime() - (480 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
-
-        const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
-
-        // Chunking Strategy: Fetch in 30-day blocks to avoid 25,000 row limit
-        const allHistory = []
-        const allPages = new Set()
-
-        let chunkEnd = new Date(endDateStr)
-        const totalStart = new Date(startDateStr)
-
-        while (chunkEnd > totalStart) {
-            let chunkStart = new Date(chunkEnd.getTime() - (30 * 24 * 60 * 60 * 1000))
-            if (chunkStart < totalStart) chunkStart = totalStart
-
-            const s = chunkStart.toISOString().split('T')[0]
-            const e = chunkEnd.toISOString().split('T')[0]
-
-            console.log(`Syncing chunk: ${s} to ${e}`)
-            const { history, pages } = await fetchGSCRankingData(gscClient, site.property_url, s, e)
-            allHistory.push(...history)
-            pages.forEach(p => allPages.add(p))
-
-            chunkEnd = new Date(chunkStart.getTime() - (1 * 24 * 60 * 60 * 1000))
-        }
-
-        // Also specifically fetch recent history for tracked keywords to ensure they aren't missed
-        if (currentTracked && currentTracked.length > 0) {
-            // Fetch last 30 days specifically for these keywords if not already deep enough
-            // (The chunking above covers everything, but this is a safety net for high-volume sites)
-            for (const kwObj of currentTracked) {
-                // If history is still sparse for this keyword, we could do a targeted fetch
-                // For now, chunking 60 days should be plenty.
-            }
-        }
-
-        // 3. Process Keywords & Intent
-        const pages = Array.from(allPages)
-        // Generate smart brand variations from property URL
-        const domainClean = site.property_url
-            .replace(/^https?:\/\//, '').replace(/^sc-domain:/, '').replace(/^www\./, '')
-            .replace(/\/.*$/, '').replace(/\.com$|\.in$|\.org$|\.net$|\.co$/g, '').trim().toLowerCase()
-        const smartBrandVars = [...brandVariations.map(b => b.toLowerCase())]
-        smartBrandVars.push(domainClean)
-        const suffixes = ['tvservicecenter', 'servicecenter', 'servicecentre', 'services', 'service', 'online', 'india', 'tech', 'digital', 'agency', 'studio', 'media', 'group', 'solutions', 'hq']
-        for (const suffix of suffixes) {
-            if (domainClean.endsWith(suffix) && domainClean.length > suffix.length + 2) {
-                const brandCore = domainClean.slice(0, -suffix.length)
-                smartBrandVars.push(brandCore)
-                const spaced = brandCore.replace(/([a-z])(fuse|tech|web|net|pro|ai|lab|box|hub|bit|app|dev|gen|id|go|my)/gi, '$1 $2')
-                if (spaced !== brandCore) smartBrandVars.push(spaced)
-                break
-            }
-        }
-        const uniqueBrandVars = [...new Set(smartBrandVars)].filter(v => v.length >= 3)
-
-        const keywordMap = {}
-        allHistory.forEach(row => {
-            if (!keywordMap[row.keyword]) {
-                keywordMap[row.keyword] = {
-                    site_id: siteId,
-                    keyword: row.keyword,
-                    intent: classifyKeywordIntent(row.keyword, uniqueBrandVars)
-                }
-            }
-        })
-
-        const keywordList = Object.values(keywordMap)
-
-        if (keywordList.length > 0) {
-            const { error: kwError } = await getSupabaseAdmin()
-                .from('keywords')
-                .upsert(keywordList, { onConflict: 'site_id, keyword' })
-            if (kwError) throw kwError
-        }
-
-        // Fetch back IDs
-        const { data: savedKeywords } = await getSupabaseAdmin()
-            .from('keywords')
-            .select('id, keyword')
-            .eq('site_id', siteId)
-
-        const kwLookup = {}
-        savedKeywords.forEach(k => kwLookup[k.keyword] = k.id)
-
-        // 4. Process History Snapshots
-        const historyMap = {}
-        allHistory.forEach(row => {
-            const kwId = kwLookup[row.keyword]
-            if (!kwId) return
-            const key = `${kwId}|${row.date}`
-            if (!historyMap[key]) {
-                historyMap[key] = {
-                    keyword_id: kwId,
-                    date: row.date,
-                    position: row.position,
-                    impressions: row.impressions,
-                    clicks: row.clicks,
-                    ctr: row.ctr,
-                    page_url: row.page_url
-                }
-            } else {
-                const existing = historyMap[key]
-                existing.impressions += row.impressions
-                existing.clicks += row.clicks
-                // Keep the page_url with the best (lowest) position
-                if (row.position < existing.position) {
-                    existing.position = row.position
-                    existing.page_url = row.page_url
-                }
-                // Recalculate CTR
-                existing.ctr = existing.impressions > 0 ? existing.clicks / existing.impressions : 0
-            }
-        })
-        const historyPayload = Object.values(historyMap)
-
-        if (historyPayload.length > 0) {
-            // Batch upsert in chunks of 500 to avoid payload limits
-            const CHUNK_SIZE = 500
-            for (let i = 0; i < historyPayload.length; i += CHUNK_SIZE) {
-                const chunk = historyPayload.slice(i, i + CHUNK_SIZE)
-                const { error: histError } = await getSupabaseAdmin()
-                    .from('keyword_history')
-                    .upsert(chunk, { onConflict: 'keyword_id, date' })
-                if (histError) throw histError
-            }
-        }
-
-        // 5. Update Pages Metadata
-        if (pages.length > 0) {
-            const pagesPayload = pages.map(url => ({ site_id: siteId, page_url: url }))
-            await getSupabaseAdmin().from('pages').upsert(pagesPayload, { onConflict: 'site_id, page_url' })
-        }
-
-        res.json({
-            success: true,
-            metrics: {
-                totalKeywords: keywordList.length,
-                totalPages: pages.length,
-                historyRecords: historyPayload.length
-            }
-        })
-
+        const metrics = await performSiteSync(userId, siteId, brandVariations)
+        res.json({ success: true, metrics })
     } catch (err) {
         console.error('Error syncing site data:', err.message)
         res.status(500).json({ error: 'Failed to sync site data', details: err.message })
+    }
+})
+
+// ═══ NEW: Daily Cron Sync Endpoint ═══
+app.get('/api/cron/daily-sync', async (req, res) => {
+    const cronSecret = process.env.CRON_SECRET || 'daily_sync_secret'
+    const authHeader = req.headers.authorization
+
+    if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer ${cronSecret}`) {
+        return res.status(401).json({ error: 'Unauthorized' })
+    }
+
+    console.log('[Cron] Starting Daily Sync...')
+    try {
+        const { data: sites, error } = await getSupabaseAdmin().from('sites').select('id, user_id, site_name')
+        if (error) throw error
+
+        const results = []
+        for (const site of sites) {
+            try {
+                // For daily sync, only fetch 7 days to keep it efficient
+                const metrics = await performSiteSync(site.user_id, site.id, [site.site_name], 7)
+                results.push({ siteId: site.id, status: 'success', keywords: metrics.totalKeywords })
+            } catch (err) {
+                console.error(`[Cron] Failed to sync site ${site.id}:`, err.message)
+                results.push({ siteId: site.id, status: 'failed', error: err.message })
+            }
+        }
+
+        res.json({ success: true, processed: results.length, details: results })
+    } catch (err) {
+        console.error('[Cron] Critical error in daily sync:', err.message)
+        res.status(500).json({ error: 'Cron Failed', details: err.message })
     }
 })
 
