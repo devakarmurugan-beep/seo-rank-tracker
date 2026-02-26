@@ -132,8 +132,14 @@ function App() {
         fetchPageAnalytics(site.id, currentRange)
       ])
 
+      let finalPagesCount = pagesCount
+      if (finalPagesCount === 0 && keywords.length > 0) {
+        const uniquePages = new Set(keywords.map(k => k.page).filter(p => p && p !== '-'))
+        finalPagesCount = uniquePages.size
+      }
+
       setTrackedKeywords(keywords)
-      setTotalPages(pagesCount)
+      setTotalPages(finalPagesCount)
       setIntentData(distribution)
       setPageAnalytics(pagesAnalytics)
     } catch (error) {

@@ -179,6 +179,12 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
     let chunkEnd = new Date(endDateStr)
     const totalStart = new Date(startDateStr)
 
+    // Normalize siteUrl for GSC API
+    let siteUrl = site.property_url
+    if (siteUrl.startsWith('sc-domain:') && siteUrl.endsWith('/')) {
+        siteUrl = siteUrl.slice(0, -1)
+    }
+
     while (chunkEnd > totalStart) {
         let chunkStart = new Date(chunkEnd.getTime() - (30 * 24 * 60 * 60 * 1000))
         if (chunkStart < totalStart) chunkStart = totalStart
@@ -186,9 +192,30 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
         const s = chunkStart.toISOString().split('T')[0]
         const e = chunkEnd.toISOString().split('T')[0]
 
-        const { history, pages } = await fetchGSCRankingData(gscClient, site.property_url, s, e)
-        allHistory.push(...history)
-        pages.forEach(p => allPages.add(p))
+        try {
+            let { history, pages } = await fetchGSCRankingData(gscClient, siteUrl, s, e)
+
+            // Fallback for Prefix Properties: Toggle trailing slash if empty
+            if (history.length === 0 && !siteUrl.startsWith('sc-domain:')) {
+                const fallbackUrl = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : `${siteUrl}/`
+                console.log(`[Sync] No data for ${siteUrl}, trying fallback: ${fallbackUrl}`)
+                const fallbackData = await fetchGSCRankingData(gscClient, fallbackUrl, s, e)
+                if (fallbackData.history.length > 0) {
+                    history = fallbackData.history
+                    pages = fallbackData.pages
+                    siteUrl = fallbackUrl // Update siteUrl for subsequent chunks
+                }
+            }
+
+            allHistory.push(...history)
+            // Extract pages from both sources for maximum coverage
+            pages.forEach(p => allPages.add(p))
+            history.forEach(h => { if (h.page_url) allPages.add(h.page_url) })
+
+        } catch (fetchErr) {
+            console.error(`[Sync] Chunk failed for ${s} to ${e}:`, fetchErr.message)
+            // Continue to next chunk instead of failing entire sync
+        }
 
         chunkEnd = new Date(chunkStart.getTime() - (1 * 24 * 60 * 60 * 1000))
     }
