@@ -499,9 +499,9 @@ app.post('/api/keywords/untrack', async (req, res) => {
     if (!siteId || !keyword) return res.status(400).json({ error: 'Missing siteId or keyword' })
     try {
         await getSupabaseAdmin().from('keywords')
-            .update({ is_tracked: false })
+            .delete()
             .eq('site_id', siteId)
-            .eq('keyword', keyword)
+            .eq('keyword', keyword.trim().toLowerCase())
         res.json({ success: true })
     } catch (err) {
         res.status(500).json({ error: 'Failed to stop tracking', details: err.message })

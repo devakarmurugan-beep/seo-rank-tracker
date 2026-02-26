@@ -145,13 +145,14 @@ function App() {
       }
 
       setTrackedKeywords(keywords)
-      setHasTrackingData(dbTracked.length > 0)
+      const trulyTracked = dbTracked.filter(k => k.is_tracked)
+      setHasTrackingData(trulyTracked.length > 0)
       setTotalPages(finalPagesCount)
       setIntentData(distribution)
       setPageAnalytics(pagesAnalytics)
 
       // Background sync for tracked keywords in chunks to avoid timeouts
-      const trackedIds = dbTracked.map(k => k.id)
+      const trackedIds = trulyTracked.map(k => k.id)
       if (trackedIds.length > 0) {
         const apiUrl = getApiUrl()
         const CHUNK_SIZE = 50
