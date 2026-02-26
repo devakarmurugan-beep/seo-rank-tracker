@@ -87,7 +87,7 @@ export default function Settings({ userSites = [] }) {
 
     return (
         <div className="max-w-4xl mx-auto py-8">
-            <h1 className="text-[32px] font-bold text-[#111827] mb-10 tracking-tight">Settings</h1>
+            <h1 className="text-[32px] font-bold text-[#111827] mb-10 tracking-tight">Subscription</h1>
 
             <div className="space-y-8">
                 {/* Billing Section */}

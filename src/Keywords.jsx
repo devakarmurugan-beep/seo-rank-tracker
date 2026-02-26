@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Search, Info, Plus, Sparkles, Target, Tag, X, Check, MoreHorizontal, ChevronRight, Globe, BarChart3, Upload, Loader2, Palette, FolderOpen, Trash2, ShoppingBag, ChevronDown, MapPin, ArrowLeft } from 'lucide-react'
 import { allGSCKeywords, trackingKeywords, categoryCards } from './data'
 import { supabase } from './lib/supabase'
@@ -106,6 +107,7 @@ const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setIt
 
 export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData, isTrial }) {
     const cp = compact
+    const navigate = useNavigate()
 
     // ═══ ADD KEYWORDS MODAL STATE ═══
     const [showAddModal, setShowAddModal] = useState(false)

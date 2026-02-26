@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Key, FileText, BarChart3, ChevronDown, Globe, Calendar, Bell, BarChart2, Rows3, Rows4, Plus, X, Loader2, Settings as SettingsIcon, LogOut } from 'lucide-react'
+import { LayoutDashboard, Key, FileText, BarChart3, ChevronDown, Globe, Calendar, Bell, BarChart2, Rows3, Rows4, Plus, X, Loader2, Settings as SettingsIcon, LogOut, CreditCard } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { fetchAvailableGSCSites, addProjectSite } from './lib/api'
 import { canAddSite, getSiteLimit } from './lib/permissions'
@@ -233,7 +233,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                     )}
                 </div>
                 <nav className="flex-1 px-3 mt-6 space-y-1">
-                    {[{ id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' }, { id: 'keywords', icon: Key, label: 'Keywords' }, { id: 'pages', icon: FileText, label: 'Pages' }, { id: 'reports', icon: BarChart2, label: 'Reports' }, { id: 'settings', icon: SettingsIcon, label: 'Settings' }].map((item) => {
+                    {[{ id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' }, { id: 'keywords', icon: Key, label: 'Keywords' }, { id: 'pages', icon: FileText, label: 'Pages' }, { id: 'reports', icon: BarChart2, label: 'Reports' }, { id: 'settings', icon: CreditCard, label: 'Subscription' }].map((item) => {
                         const Icon = item.icon
                         const isActive = activePage === item.id
                         return (<Link to={`/${item.id}`} key={item.id} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium ${isActive ? 'bg-[#2563EB] text-white shadow-[0_2px_8px_rgba(37,99,235,0.3)]' : 'text-[#94A3B8] hover:bg-white/5 hover:text-white'}`}><Icon className="w-[18px] h-[18px]" />{item.label}</Link>)
@@ -278,7 +278,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
             <div className="flex-1 flex flex-col overflow-hidden bg-[#F8FAFC]">
                 {/* Top Bar */}
                 <div className="h-16 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-8 flex-shrink-0 z-10 shadow-sm">
-                    <h1 className="text-[18px] font-bold text-[#111827] tracking-tight capitalize">{activePage === 'pages' ? 'Page Tracking' : activePage}</h1>
+                    <h1 className="text-[18px] font-bold text-[#111827] tracking-tight capitalize">{activePage === 'pages' ? 'Page Tracking' : activePage === 'settings' ? 'Subscription' : activePage}</h1>
                     <div className="flex items-center gap-3">
                         {/* Compact Mode Toggle */}
                         <button onClick={() => setCompactMode(!c)} className={`p-2 rounded-lg border transition-colors ${c ? 'bg-[#EFF6FF] border-[#2563EB]/30 text-[#2563EB]' : 'border-[#E5E7EB] text-[#9CA3AF] hover:text-[#4B5563] hover:border-[#D1D5DB]'}`} title={c ? 'Normal density' : 'Compact density'}>
