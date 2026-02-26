@@ -85,7 +85,7 @@ router.post('/create-checkout', async (req, res) => {
             console.log('[Checkout] Dodo Success Response:', JSON.stringify(paymentData, null, 2))
 
             // The redirect URL where users enter their credit card
-            const checkoutUrl = paymentData.payment_link || (paymentData._links && paymentData._links.payment_link)
+            const checkoutUrl = paymentData.checkout_url || paymentData.payment_link || (paymentData._links && paymentData._links.payment_link)
 
             if (!checkoutUrl) {
                 console.error('[Checkout] Dodo Response missing payment_link:', paymentData)
