@@ -26,8 +26,6 @@ function App() {
   const [dateRange, setDateRange] = useState('30d')
   const [kwTab, setKwTab] = useState('tracking')
   const [hasTrackingData, setHasTrackingData] = useState(false)
-  const [showAIModal, setShowAIModal] = useState(false)
-  const [aiStep, setAiStep] = useState(0)
   const [posFilter, setPosFilter] = useState('All')
   const [activePageCategory, setActivePageCategory] = useState('All Pages')
   const [pageFilter, setPageFilter] = useState('All')
@@ -115,24 +113,23 @@ function App() {
       const { fetchTrackedKeywordsWithHistory, fetchTotalPagesCount, fetchIntentDistribution, fetchPageAnalytics, fetchTrialKeywords } = await import('./lib/dataFetcher')
 
       let keywords = [];
+      const dbTracked = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
+
       if (isTrial) {
-        const [trialDiscovered, dbTracked] = await Promise.all([
-          fetchTrialKeywords(site.id),
-          fetchTrackedKeywordsWithHistory(site.id, currentRange)
-        ]);
-
-        // Merge them: DB Tracked (is_tracked: true) + Discovery (is_tracked: false)
+        // Discovery for trial users (only shown in All Keywords tab)
+        const discovered = await fetchTrialKeywords(site.id);
         const trackedMap = new Map(dbTracked.map(k => [k.keyword, k]));
-        const merged = [...dbTracked];
 
-        trialDiscovered.forEach(tk => {
+        // Merge: DB Tracked (is_tracked: true) + Discovery (is_tracked: false)
+        const merged = [...dbTracked];
+        discovered.forEach(tk => {
           if (!trackedMap.has(tk.keyword)) {
-            merged.push({ ...tk, is_tracked: false }); // Ensure they are marked untracked
+            merged.push({ ...tk, is_tracked: false });
           }
         });
         keywords = merged;
       } else {
-        keywords = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
+        keywords = dbTracked;
       }
 
       const [pagesCount, distribution, pagesAnalytics] = await Promise.all([
@@ -148,9 +145,41 @@ function App() {
       }
 
       setTrackedKeywords(keywords)
+      setHasTrackingData(dbTracked.length > 0)
       setTotalPages(finalPagesCount)
       setIntentData(distribution)
       setPageAnalytics(pagesAnalytics)
+
+      // Background sync for tracked keywords to ensure GSC stats are fresh
+      const trackedIds = dbTracked.map(k => k.id)
+      if (trackedIds.length > 0) {
+        const apiUrl = getApiUrl()
+        fetch(`${apiUrl}/api/keywords/sync-specific`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ siteId: site.id, keywordIds: trackedIds })
+        }).then(res => res.json()).then(data => {
+          if (data.success) {
+            // Re-fetch from DB silently to update UI with fresh stats
+            fetchTrackedKeywordsWithHistory(site.id, currentRange).then(freshKws => {
+              // Merge discoveries again if trial
+              if (isTrial) {
+                const freshTrackedMap = new Map(freshKws.map(k => [k.keyword, k]));
+                const merged = [...freshKws];
+                // Keep the 'keywords' state up to date with fresh tracked stats + old discoveries
+                keywords.forEach(tk => {
+                  if (!tk.is_tracked && !freshTrackedMap.has(tk.keyword)) {
+                    merged.push(tk);
+                  }
+                });
+                setTrackedKeywords(merged);
+              } else {
+                setTrackedKeywords(freshKws);
+              }
+            });
+          }
+        }).catch(err => console.error("Background sync failed:", err));
+      }
     } catch (error) {
       console.error("Error loading site data:", error)
     } finally {
@@ -269,9 +298,7 @@ function App() {
   const handlePageCategory = (cat) => { setActivePageCategory(cat) }
   const handlePageFilter = (f) => { setPageFilter(f) }
 
-  const handleStartAI = () => { setShowAIModal(true); setAiStep(1); setTimeout(() => { setAiStep(2) }, 2500) }
-  const handleConfirmAI = () => { setShowAIModal(false); setAiStep(0); setHasTrackingData(true); setKwTab('tracking') }
-  const handleCloseAI = () => { setShowAIModal(false); setAiStep(0) }
+
 
   const handleCategoryCardClick = (catName) => { setSelectedCategoryFilter(catName); setKwTab('tracking') }
   const handleClearCategoryFilter = () => { setSelectedCategoryFilter(null) }
@@ -335,8 +362,6 @@ function App() {
             selectedCategoryFilter={selectedCategoryFilter}
             handleCategoryCardClick={handleCategoryCardClick}
             handleClearCategoryFilter={handleClearCategoryFilter}
-            handleStartAI={handleStartAI} handleConfirmAI={handleConfirmAI} handleCloseAI={handleCloseAI}
-            showAIModal={showAIModal} aiStep={aiStep}
             compact={compactMode}
             isGscConnected={isGscConnected}
             isLoadingData={isLoadingData}

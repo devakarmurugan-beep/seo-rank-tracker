@@ -435,10 +435,62 @@ app.post('/api/keywords/track', async (req, res) => {
             }
         }
 
-        res.json({ success: true, count: records.length })
+        res.json({ success: true, count: records.length, keywords: keywordsWithIds })
     } catch (err) {
         console.error('Error adding tracked keywords:', err.message)
         res.status(500).json({ error: 'Failed to add keywords', details: err.message })
+    }
+})
+
+// Sync specific tracked keywords (used for "on reload" fresh stats)
+app.post('/api/keywords/sync-specific', async (req, res) => {
+    const { siteId, keywordIds } = req.body
+    if (!siteId || !keywordIds || !Array.isArray(keywordIds)) {
+        return res.status(400).json({ error: 'Missing siteId or keywordIds array' })
+    }
+
+    try {
+        const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
+        const { data: kws } = await getSupabaseAdmin().from('keywords').select('*').in('id', keywordIds)
+        const { data: connection } = await getSupabaseAdmin().from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
+
+        if (!connection?.refresh_token || !site?.property_url) {
+            return res.status(400).json({ error: 'GSC connection not found for this site' })
+        }
+
+        const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
+        const today = new Date()
+        const endDate = new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+        const startDate = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+
+        const syncResults = []
+        for (const kw of kws) {
+            try {
+                // Use strict 'equals' operator for each keyword
+                const { history } = await fetchGSCRankingData(gscClient, site.property_url, startDate, endDate, kw.keyword)
+                if (history && history.length > 0) {
+                    const historyPayload = history.map(h => ({
+                        keyword_id: kw.id,
+                        date: h.date,
+                        position: h.position,
+                        impressions: h.impressions,
+                        clicks: h.clicks,
+                        ctr: h.ctr,
+                        page_url: h.page_url
+                    }))
+                    await getSupabaseAdmin().from('keyword_history').upsert(historyPayload, { onConflict: 'keyword_id, date' })
+                    syncResults.push({ id: kw.id, keyword: kw.keyword, status: 'synced', records: history.length })
+                }
+            } catch (kwErr) {
+                console.error(`Sync failed for keyword ${kw.keyword}:`, kwErr.message)
+                syncResults.push({ id: kw.id, keyword: kw.keyword, status: 'failed', error: kwErr.message })
+            }
+        }
+
+        res.json({ success: true, details: syncResults })
+    } catch (err) {
+        console.error('Error in specific sync:', err.message)
+        res.status(500).json({ error: 'Sync failed', details: err.message })
     }
 })
 

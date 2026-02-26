@@ -105,7 +105,7 @@ const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setIt
     )
 }
 
-export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, handleStartAI, handleConfirmAI, handleCloseAI, showAIModal, aiStep, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData, isTrial }) {
+export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData, isTrial }) {
     const cp = compact
     const navigate = useNavigate()
 
@@ -851,18 +851,11 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                         <div className="flex flex-col items-center justify-center py-24">
                             <div className="w-20 h-20 rounded-2xl bg-[#EFF6FF] flex items-center justify-center mb-6"><Target className="w-10 h-10 text-[#2563EB]" /></div>
                             <h3 className="text-[20px] font-semibold text-[#111827] mb-2 tracking-[-0.01em]">Track Strategic Keywords</h3>
-                            <p className="text-[13px] text-[#4B5563] max-w-md text-center mb-2 font-normal">Add high-priority keywords manually or use AI to automatically detect primary keywords from your website pages.</p>
+                            <p className="text-[13px] text-[#4B5563] max-w-md text-center mb-2 font-normal">Add high-priority keywords manually to monitor their historical performance and ranking trends.</p>
                             <div className="flex items-center gap-2 mb-8 px-3 py-1.5 bg-[#F9FAFB] rounded-lg"><Info className="w-3 h-3 text-[#9CA3AF]" /><span className="text-[11px] text-[#9CA3AF] font-normal">Tracking Keywords are monitored historically and included in client reports.</span></div>
-                            {!isTrial ? (
-                                <div className="flex items-center gap-3">
-                                    <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#111827] hover:border-[#D1D5DB] bg-white"><Plus className="w-4 h-4" />Add Keywords Manually</button>
-                                    <button onClick={handleStartAI} className="flex items-center gap-2 px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg"><Sparkles className="w-4 h-4" />Auto-Detect Primary Keywords</button>
-                                </div>
-                            ) : (
-                                <div className="text-center">
-                                    <p className="text-[14px] text-[#2563EB] font-medium">Upgrade to Pro to manually track specific keywords.</p>
-                                </div>
-                            )}
+                            <div className="flex items-center gap-3">
+                                <button onClick={openAddModal} className="flex items-center gap-2 px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg shadow-sm transition-all"><Plus className="w-4 h-4" />Add Keywords</button>
+                            </div>
                         </div>
                     ) : (
                         <div>
@@ -896,7 +889,6 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     )}
                                     <div className="w-px h-6 bg-[#E5E7EB] mx-1"></div>
 
-                                    <button onClick={handleStartAI} className="flex items-center gap-1.5 px-3 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#4B5563] hover:border-[#D1D5DB] bg-white"><Sparkles className="w-3.5 h-3.5" />Auto-Detect</button>
                                     <button onClick={openAddModal} className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg"><Plus className="w-4 h-4" />Add</button>
                                 </div>
                             </div>
