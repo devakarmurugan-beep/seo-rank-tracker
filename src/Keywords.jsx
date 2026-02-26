@@ -105,7 +105,7 @@ const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setIt
     )
 }
 
-export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, compact, isGscConnected, isLoadingData, trackedKeywords = [], activeSite, dateRange, refreshData, isTrial }) {
+export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, compact, isGscConnected, isLoadingData, trackedKeywords = [], setTrackedKeywords, activeSite, dateRange, refreshData, isTrial }) {
     const cp = compact
     const navigate = useNavigate()
 
@@ -427,6 +427,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             const result = await response.json()
             if (result.success) {
                 if (setHasTrackingData) setHasTrackingData(true)
+                if (refreshData) refreshData(true)
                 // Mark as added with a brief success state
                 setAddingToTrack(prev => ({ ...prev, [kwStringId]: 'done' }))
                 setTimeout(() => setAddingToTrack(prev => ({ ...prev, [kwStringId]: false })), 2000)
@@ -451,6 +452,12 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     }
 
     const handleUntrackKeyword = async (keyword) => {
+        // Optimistic UI Update
+        const previousKeywords = [...trackedKeywords]
+        if (setTrackedKeywords) {
+            setTrackedKeywords(trackedKeywords.filter(kw => kw.keyword !== keyword))
+        }
+
         try {
             const apiUrl = getApiUrl()
             const response = await fetch(`${apiUrl}/api/keywords/untrack`, {
@@ -460,10 +467,16 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             })
             const result = await response.json()
             if (result.success && refreshData) {
-                refreshData()
+                // Background refresh without spinner
+                refreshData(true)
+            } else if (!result.success) {
+                // Rollback if failed
+                if (setTrackedKeywords) setTrackedKeywords(previousKeywords)
             }
         } catch (err) {
             console.error('Error untracking keyword:', err)
+            // Rollback on error
+            if (setTrackedKeywords) setTrackedKeywords(previousKeywords)
         }
     }
 
@@ -531,7 +544,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             if (result.success) {
                 setSaveSuccess(`${result.count} keyword${result.count > 1 ? 's' : ''} added to tracking!`)
                 if (setHasTrackingData) setHasTrackingData(true)
-                if (refreshData) refreshData()
+                if (refreshData) refreshData(true)
                 setTimeout(() => {
                     setShowAddModal(false)
                     setSaveSuccess('')
@@ -939,7 +952,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                                         </td>
                                                         <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}>
                                                             <div className="relative group/action inline-block">
-                                                                <button onClick={() => handleUntrackKeyword(kw.keyword)} title="Stop tracking this keyword" className="p-1 hover:bg-[#FEE2E2] rounded text-[#9CA3AF] hover:text-[#DC2626] transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                                                <button onClick={() => handleUntrackKeyword(kw.keyword)} title="Delete keyword" className="p-1 hover:bg-[#FEE2E2] rounded text-[#9CA3AF] hover:text-[#DC2626] transition-colors"><Trash2 className="w-4 h-4" /></button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -989,7 +1002,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                                     })}
                                                     <td></td>
                                                     <td className="px-2 text-center border-l border-[#E5E7EB]">
-                                                        <button onClick={() => handleUntrackKeyword(kw.keyword)} title="Stop tracking this keyword" className="p-1 hover:bg-[#FEE2E2] rounded text-[#9CA3AF] hover:text-[#DC2626] transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                        <button onClick={() => handleUntrackKeyword(kw.keyword)} title="Delete keyword" className="p-1 hover:bg-[#FEE2E2] rounded text-[#9CA3AF] hover:text-[#DC2626] transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                                                     </td>
                                                 </tr>
                                             ))}

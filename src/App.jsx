@@ -102,13 +102,15 @@ function App() {
     return apiUrl || 'http://localhost:3001'
   }
 
-  const loadSiteData = async (site, currentRange = dateRange) => {
+  const loadSiteData = async (site, currentRange = dateRange, silent = false) => {
     if (!site) return
-    setIsLoadingData(true)
-    setTrackedKeywords([])
-    setTotalPages(0)
-    setIntentData([])
-    setPageAnalytics([])
+    if (!silent) {
+      setIsLoadingData(true)
+      setTrackedKeywords([])
+      setTotalPages(0)
+      setIntentData([])
+      setPageAnalytics([])
+    }
     try {
       const { fetchTrackedKeywordsWithHistory, fetchTotalPagesCount, fetchIntentDistribution, fetchPageAnalytics, fetchTrialKeywords } = await import('./lib/dataFetcher')
 
@@ -158,6 +160,7 @@ function App() {
         const CHUNK_SIZE = 50
 
         const syncChunks = async () => {
+          let hasAnySuccess = false
           for (let i = 0; i < trackedIds.length; i += CHUNK_SIZE) {
             const chunk = trackedIds.slice(i, i + CHUNK_SIZE)
             try {
@@ -167,24 +170,26 @@ function App() {
                 body: JSON.stringify({ siteId: site.id, keywordIds: chunk })
               })
               const data = await res.json()
-              if (data.success) {
-                // Silently refresh data after each chunk or after all chunks
-                const freshKws = await fetchTrackedKeywordsWithHistory(site.id, currentRange)
-                if (isTrial) {
-                  const freshTrackedMap = new Map(freshKws.map(k => [k.keyword, k]));
-                  const merged = [...freshKws];
-                  keywords.forEach(tk => {
-                    if (!tk.is_tracked && !freshTrackedMap.has(tk.keyword)) {
-                      merged.push(tk);
-                    }
-                  });
-                  setTrackedKeywords(merged);
-                } else {
-                  setTrackedKeywords(freshKws);
-                }
-              }
+              if (data.success) hasAnySuccess = true
             } catch (err) {
               console.error(`Background sync chunk ${i / CHUNK_SIZE} failed:`, err)
+            }
+          }
+
+          if (hasAnySuccess) {
+            // Re-fetch once at the end
+            const freshKws = await fetchTrackedKeywordsWithHistory(site.id, currentRange)
+            if (isTrial) {
+              const freshTrackedMap = new Map(freshKws.map(k => [k.keyword, k]));
+              const merged = [...freshKws];
+              keywords.forEach(tk => {
+                if (!tk.is_tracked && !freshTrackedMap.has(tk.keyword)) {
+                  merged.push(tk);
+                }
+              });
+              setTrackedKeywords(merged);
+            } else {
+              setTrackedKeywords(freshKws);
             }
           }
         }
@@ -378,7 +383,8 @@ function App() {
             trackedKeywords={trackedKeywords}
             activeSite={activeSite}
             dateRange={dateRange}
-            refreshData={() => activeSite && loadSiteData(activeSite)}
+            refreshData={(silent = false) => activeSite && loadSiteData(activeSite, dateRange, silent)}
+            setTrackedKeywords={setTrackedKeywords}
             isTrial={isTrial}
           />
         } />
