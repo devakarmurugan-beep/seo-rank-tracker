@@ -54,6 +54,13 @@ router.post('/create-checkout', async (req, res) => {
         // Connect to Dodo Payments create checkout URL
         try {
             const payload = {
+                billing: {
+                    city: '',
+                    country: '',
+                    state: '',
+                    street: '',
+                    zipcode: ''
+                },
                 customer: {
                     email: userEmail || '',
                     name: userEmail?.split('@')[0] || 'User'
