@@ -56,7 +56,7 @@ export const fetchGSCRankingData = async (gscClient, siteUrl, startDate, endDate
                     startDate: startDate,
                     endDate: endDate,
                     dimensions: ['page'],
-                    rowLimit: 5000,
+                    rowLimit: 25000,
                 }
             })
         ])

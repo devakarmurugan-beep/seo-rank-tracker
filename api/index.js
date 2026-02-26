@@ -472,7 +472,7 @@ app.get('/api/gsc/locations', async (req, res) => {
                 startDate: startDate,
                 endDate: endDate,
                 dimensions: ['country', 'query', 'page'],
-                rowLimit: isTrial ? 1000 : 5000, // Fetch more for trial to account for branded filtering
+                rowLimit: 25000,
             }
         })
 
@@ -578,7 +578,7 @@ app.get('/api/gsc/trial-keywords', async (req, res) => {
 
         let response = await gscClient.searchanalytics.query({
             siteUrl: siteUrl,
-            requestBody: { startDate, endDate, dimensions: ['query', 'page'], rowLimit: 500 }
+            requestBody: { startDate, endDate, dimensions: ['query', 'page'], rowLimit: 25000 }
         })
 
         // Fallback: If no rows and it's a URL prefix, try toggling the trailing slash
@@ -588,7 +588,7 @@ app.get('/api/gsc/trial-keywords', async (req, res) => {
             try {
                 const fallbackRes = await gscClient.searchanalytics.query({
                     siteUrl: fallbackUrl,
-                    requestBody: { startDate, endDate, dimensions: ['query', 'page'], rowLimit: 500 }
+                    requestBody: { startDate, endDate, dimensions: ['query', 'page'], rowLimit: 25000 }
                 });
                 if (fallbackRes.data.rows && fallbackRes.data.rows.length > 0) {
                     console.log(`[Trial] Fallback succeeded with ${fallbackRes.data.rows.length} rows`);
