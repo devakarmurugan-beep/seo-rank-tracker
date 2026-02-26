@@ -49,7 +49,7 @@ router.post('/create-checkout', async (req, res) => {
 
         const returnUrl = (process.env.GCP_REDIRECT_URI?.replace('/auth/callback', '') || 'http://localhost:5173') + '/dashboard?payment=success'
 
-        console.log(`[Checkout] Creating Dodo Session for User: ${userEmail}, Plan: ${planId}, Product: ${productId}`)
+        console.log(`[Checkout] Creating Dodo Checkout Session for User: ${userEmail}, Plan: ${planId}, Product: ${productId}`)
 
         // Connect to Dodo Payments create checkout URL
         try {
@@ -80,7 +80,7 @@ router.post('/create-checkout', async (req, res) => {
 
             console.log('[Checkout] Payload:', JSON.stringify(payload, null, 2))
 
-            const paymentData = await getDodoClient().payments.create(payload)
+            const paymentData = await getDodoClient().checkoutSessions.create(payload)
 
             console.log('[Checkout] Dodo Success Response:', JSON.stringify(paymentData, null, 2))
 
