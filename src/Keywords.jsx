@@ -1256,47 +1256,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                 </div>
             )}
 
-            {/* AI Modal */}
-            {showAIModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" style={{ backdropFilter: 'blur(4px)' }}>
-                    <div className="bg-white rounded-2xl w-[520px] overflow-hidden" style={{ boxShadow: 'var(--shadow-lg)' }}>
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
-                            <div className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#2563EB]" /><h3 className="text-[16px] font-semibold text-[#111827]">AI Keyword Detection</h3></div>
-                            <button onClick={handleCloseAI} className="p-1 hover:bg-[#F9FAFB] rounded-lg"><X className="w-5 h-5 text-[#9CA3AF]" /></button>
-                        </div>
-                        <div className="px-6 py-8">
-                            {aiStep === 1 && (
-                                <div className="text-center">
-                                    <div className="w-16 h-16 rounded-2xl bg-[#EFF6FF] flex items-center justify-center mx-auto mb-4 animate-pulse"><Sparkles className="w-8 h-8 text-[#2563EB]" /></div>
-                                    <h4 className="text-[16px] font-semibold text-[#111827] mb-2">Analyzing pages and detecting keywords...</h4>
-                                    <p className="text-[13px] text-[#4B5563] mb-6 font-normal">Pulling pages from Search Console and selecting primary keywords.</p>
-                                    <div className="w-full h-2 bg-[#F3F4F6] rounded-full overflow-hidden"><div className="h-full bg-[#2563EB] rounded-full animate-pulse" style={{ width: '65%' }}></div></div>
-                                </div>
-                            )}
-                            {aiStep === 2 && (
-                                <div>
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <div className="w-12 h-12 rounded-xl bg-[#ECFDF5] flex items-center justify-center"><Check className="w-6 h-6 text-[#059669]" /></div>
-                                        <div><h4 className="text-[16px] font-semibold text-[#111827]">Detection Complete</h4><p className="text-[13px] text-[#4B5563] font-normal">Primary keywords identified and categorized</p></div>
-                                    </div>
-                                    <div className="space-y-3 mb-6">
-                                        <div className="flex items-center justify-between p-3 bg-[#F9FAFB] rounded-lg"><span className="text-[13px] font-medium text-[#111827]">Primary Keywords Added</span><span className="metric-value text-[20px] text-[#2563EB]">187</span></div>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <div className="p-3 bg-[#F9FAFB] rounded-lg text-center"><span className="metric-value text-[20px] text-[#111827]">32</span><p className="text-[10px] text-[#9CA3AF] uppercase font-medium mt-0.5">Blog Pages</p></div>
-                                            <div className="p-3 bg-[#F9FAFB] rounded-lg text-center"><span className="metric-value text-[20px] text-[#111827]">15</span><p className="text-[10px] text-[#9CA3AF] uppercase font-medium mt-0.5">Landing Pages</p></div>
-                                            <div className="p-3 bg-[#F9FAFB] rounded-lg text-center"><span className="metric-value text-[20px] text-[#111827]">6</span><p className="text-[10px] text-[#9CA3AF] uppercase font-medium mt-0.5">Product Pages</p></div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <button onClick={handleCloseAI} className="flex-1 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#4B5563] hover:bg-[#F9FAFB]">Undo</button>
-                                        <button onClick={handleConfirmAI} className="flex-1 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg">Confirm & View Keywords</button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             {/* ═══ ADD KEYWORDS MODAL ═══ */}
             {showAddModal && (

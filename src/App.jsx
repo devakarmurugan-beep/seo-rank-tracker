@@ -150,35 +150,44 @@ function App() {
       setIntentData(distribution)
       setPageAnalytics(pagesAnalytics)
 
-      // Background sync for tracked keywords to ensure GSC stats are fresh
+      // Background sync for tracked keywords in chunks to avoid timeouts
       const trackedIds = dbTracked.map(k => k.id)
       if (trackedIds.length > 0) {
         const apiUrl = getApiUrl()
-        fetch(`${apiUrl}/api/keywords/sync-specific`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ siteId: site.id, keywordIds: trackedIds })
-        }).then(res => res.json()).then(data => {
-          if (data.success) {
-            // Re-fetch from DB silently to update UI with fresh stats
-            fetchTrackedKeywordsWithHistory(site.id, currentRange).then(freshKws => {
-              // Merge discoveries again if trial
-              if (isTrial) {
-                const freshTrackedMap = new Map(freshKws.map(k => [k.keyword, k]));
-                const merged = [...freshKws];
-                // Keep the 'keywords' state up to date with fresh tracked stats + old discoveries
-                keywords.forEach(tk => {
-                  if (!tk.is_tracked && !freshTrackedMap.has(tk.keyword)) {
-                    merged.push(tk);
-                  }
-                });
-                setTrackedKeywords(merged);
-              } else {
-                setTrackedKeywords(freshKws);
+        const CHUNK_SIZE = 50
+
+        const syncChunks = async () => {
+          for (let i = 0; i < trackedIds.length; i += CHUNK_SIZE) {
+            const chunk = trackedIds.slice(i, i + CHUNK_SIZE)
+            try {
+              const res = await fetch(`${apiUrl}/api/keywords/sync-specific`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteId: site.id, keywordIds: chunk })
+              })
+              const data = await res.json()
+              if (data.success) {
+                // Silently refresh data after each chunk or after all chunks
+                const freshKws = await fetchTrackedKeywordsWithHistory(site.id, currentRange)
+                if (isTrial) {
+                  const freshTrackedMap = new Map(freshKws.map(k => [k.keyword, k]));
+                  const merged = [...freshKws];
+                  keywords.forEach(tk => {
+                    if (!tk.is_tracked && !freshTrackedMap.has(tk.keyword)) {
+                      merged.push(tk);
+                    }
+                  });
+                  setTrackedKeywords(merged);
+                } else {
+                  setTrackedKeywords(freshKws);
+                }
               }
-            });
+            } catch (err) {
+              console.error(`Background sync chunk ${i / CHUNK_SIZE} failed:`, err)
+            }
           }
-        }).catch(err => console.error("Background sync failed:", err));
+        }
+        syncChunks()
       }
     } catch (error) {
       console.error("Error loading site data:", error)
