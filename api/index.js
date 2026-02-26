@@ -521,7 +521,6 @@ app.get('/api/gsc/locations', async (req, res) => {
         const locations = Object.values(countryMap).map(c => {
             // Sort by position for trial users to show best rankings
             let kws = c.keywords.sort((a, b) => a.position - b.position)
-            if (isTrial) kws = kws.slice(0, 25)
 
             return {
                 countryCode: c.countryCode,
@@ -624,7 +623,7 @@ app.get('/api/gsc/trial-keywords', async (req, res) => {
         }
 
         const sorted = results.sort((a, b) => a.position - b.position)
-        const top25 = sorted.slice(0, 25).map(kw => ({
+        const allKeywords = sorted.map(kw => ({
             ...kw,
             intent: classifyKeywordIntent(kw.keyword, brandVars),
             is_tracked: true,
@@ -633,7 +632,7 @@ app.get('/api/gsc/trial-keywords', async (req, res) => {
 
         res.json({
             success: true,
-            keywords: top25,
+            keywords: allKeywords,
             debug: {
                 totalRows: allRows.length,
                 nonBrandedCount: results.length,

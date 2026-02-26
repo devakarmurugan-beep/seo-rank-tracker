@@ -683,7 +683,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                         <>
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Top 25 Non-Branded Keywords' : 'All Google Search Console Keywords'}</h2>
+                                    <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Discovered GSC Keywords' : 'All Google Search Console Keywords'}</h2>
                                     {isTrial && <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold rounded-md border border-[#DBEAFE] uppercase tracking-wider">TRIAL MODE</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -694,7 +694,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                             <div className="flex items-start gap-3 p-4 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl mb-5">
                                 <Info className="w-4 h-4 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
                                 <div>
-                                    <p className="text-[13px] text-[#4B5563] font-normal">{isTrial ? 'Trial mode shows 25 high-performing non-branded keywords from GSC.' : 'All Keywords are automatically pulled from Search Console.'}</p>
+                                    <p className="text-[13px] text-[#4B5563] font-normal">{isTrial ? 'Trial mode shows all discovered non-branded keywords from GSC.' : 'All Keywords are automatically pulled from Search Console.'}</p>
                                     {!isTrial && <p className="text-[11px] text-[#9CA3AF] mt-1 font-normal">Add important keywords to <button onClick={() => handleKwTab('tracking')} className="text-[#2563EB] font-medium hover:underline">Tracking Keywords</button> to monitor performance over time.</p>}
                                 </div>
                             </div>
@@ -742,7 +742,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     </tr></thead>
                                     <tbody>
                                         {(() => {
-                                            const displayList = isTrial ? (filteredGSC || []).slice(0, 25) : (filteredGSC || []);
+                                            const displayList = filteredGSC || [];
                                             if (displayList.length === 0 && !isLoadingData) {
                                                 return (
                                                     <tr>

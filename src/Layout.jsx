@@ -248,7 +248,7 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                     {isTrial ? (
                         <>
                             <div className="w-full h-1.5 bg-white/10 rounded-full my-2"><div className="h-full bg-[#2563EB] rounded-full" style={{ width: '100%' }}></div></div>
-                            <div className="text-[11px] font-normal text-[#64748B] mb-3">25 Keywords (Restricted)</div>
+                            <div className="text-[11px] font-normal text-[#64748B] mb-3">Unlimited Keywords</div>
                         </>
                     ) : (
                         <>
