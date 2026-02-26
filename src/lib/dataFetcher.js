@@ -161,12 +161,20 @@ export const fetchTrialKeywords = async (siteId) => {
         const response = await fetch(`${apiUrl}/api/gsc/trial-keywords?siteId=${siteId}`)
         const data = await response.json()
         if (data.success) {
+            const today = new Date().toISOString().split('T')[0]
             return data.keywords.map(kw => ({
                 ...kw,
                 change: 0,
                 bestPos: kw.position,
                 trend: [kw.position, kw.position, kw.position],
-                history: []
+                history: [{
+                    date: today,
+                    position: kw.position,
+                    clicks: kw.clicks,
+                    impressions: kw.impressions,
+                    ctr: kw.ctr,
+                    page_url: kw.page
+                }]
             }))
         }
         return []

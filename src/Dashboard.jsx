@@ -16,7 +16,7 @@ const distIcons = { trophy: Trophy, circleCheck: CircleCheck, triangleAlert: Tri
 import { useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 
-export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData }) {
+export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData, isTrial }) {
     const location = useLocation()
     const query = new URLSearchParams(location.search)
     const isPaymentSuccess = query.get('payment') === 'success'
@@ -105,19 +105,23 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
             words.forEach(w => { if (w.length >= 3) variations.add(w) })
             variations.add(words.join(' '))
         }
-        if (words.length === 1 && domain.length > 6) {
-            const suffixes = ['tvservicecenter', 'servicecenter', 'servicecentre', 'services', 'service', 'online', 'india', 'tech', 'digital', 'agency', 'studio', 'media', 'group', 'solutions', 'hq']
+        if (words.length === 1 && domain.length > 5) {
+            const suffixes = ['tvservicecenter', 'servicecenter', 'servicecentre', 'services', 'service', 'online', 'india', 'tech', 'digital', 'agency', 'studio', 'media', 'group', 'solutions', 'hq', 'reports', 'report', 'app', 'tool', 'dashboard', 'connector', 'platform']
             for (const suffix of suffixes) {
                 if (domain.endsWith(suffix) && domain.length > suffix.length + 2) {
                     const brand = domain.slice(0, -suffix.length)
                     variations.add(brand)
-                    const spaced = brand.replace(/([a-z])(fuse|tech|web|net|pro|ai|lab|box|hub|bit|app|dev|gen|id|go|my)/gi, '$1 $2')
+                    const spaced = brand.replace(/([a-z])(fuse|tech|web|net|pro|ai|lab|box|hub|bit|app|dev|gen|id|go|my|minute|second|hour|day|week|info|data)/gi, '$1 $2')
                     if (spaced !== brand) variations.add(spaced)
                     break
                 }
             }
-            const shortBrand = domain.match(/^[a-z]{2,8}(?=[aeiou][a-z]*[aeiou])/)?.[0]
-            if (shortBrand && shortBrand.length >= 3) variations.add(shortBrand)
+            // Also try splitting the domain if it contains common words
+            const smartSpaced = domain.replace(/([a-z])(reports|report|service|online|tool|app|pro|tech|data|hub|box|link|flow)/gi, '$1 $2')
+            if (smartSpaced !== domain) {
+                variations.add(smartSpaced)
+                smartSpaced.split(' ').forEach(w => { if (w.length >= 3) variations.add(w) })
+            }
         }
         return [...variations].filter(v => v.length >= 3)
     }
@@ -207,6 +211,7 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
         )
     }
     const formatLastSynced = (date) => {
+        if (isTrial && trackedKeywords.length > 0) return 'Live Discovery Active'
         if (!date) return 'Awaiting initial sync...'
         try {
             const now = new Date()
