@@ -717,12 +717,14 @@ app.get('/api/gsc/trial-keywords', async (req, res) => {
             results = allRows;
         }
 
-        const sorted = results.sort((a, b) => a.position - b.position)
+        // Sort by Impressions Descending and take top 25
+        const sorted = results.sort((a, b) => b.impressions - a.impressions).slice(0, 25)
+
         const allKeywords = sorted.map(kw => ({
             ...kw,
             intent: classifyKeywordIntent(kw.keyword, brandVars),
             is_tracked: false,
-            category: 'Trial View'
+            category: 'High-Volume Discovery'
         }))
 
         res.json({
