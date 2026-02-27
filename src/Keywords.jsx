@@ -407,18 +407,18 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     }, [activeSite?.id])
 
     const handleSort = (field) => {
+        // Strict 3-state cycle: Descending -> Ascending -> Reset
         if (sortField !== field) {
             setSortField(field)
-            // Position defaults to #1 at top (asc), others to High at top (desc)
-            setSortOrder(field === 'position' ? 'asc' : 'desc')
+            setSortOrder('desc')
         } else {
-            if (sortOrder === (field === 'position' ? 'asc' : 'desc')) {
-                setSortOrder(field === 'position' ? 'desc' : 'asc')
-            } else if (sortOrder === (field === 'position' ? 'desc' : 'asc')) {
+            if (sortOrder === 'desc') {
+                setSortOrder('asc')
+            } else if (sortOrder === 'asc') {
                 setSortOrder(null)
                 setSortField(null)
             } else {
-                setSortOrder(field === 'position' ? 'asc' : 'desc')
+                setSortOrder('desc')
             }
         }
         setAllKwPage(1)
@@ -672,19 +672,29 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             let valA, valB
 
             if (sortField === 'position') {
-                valA = (a.impressions < 10) ? Infinity : (a.position || Infinity)
-                valB = (b.impressions < 10) ? Infinity : (b.position || Infinity)
-            } else {
-                valA = a[sortField] ?? -Infinity
-                valB = b[sortField] ?? -Infinity
-            }
+                // N/R Rule: impressions < 10 or no position
+                const isNR_A = (a.impressions < 10 || !a.position)
+                const isNR_B = (b.impressions < 10 || !b.position)
 
-            // Always push N/R or nulls to bottom
-            if (valA === Infinity || valA === -Infinity) {
-                if (valB === Infinity || valB === -Infinity) return 0
-                return 1
+                // Push N/R to bottom always
+                if (isNR_A && isNR_B) return 0
+                if (isNR_A) return 1
+                if (isNR_B) return -1
+
+                valA = Number(a.position)
+                valB = Number(b.position)
+            } else {
+                const isNullA = a[sortField] === null || a[sortField] === undefined || a[sortField] === '-'
+                const isNullB = b[sortField] === null || b[sortField] === undefined || b[sortField] === '-'
+
+                // Push nulls/dashes to bottom always
+                if (isNullA && isNullB) return 0
+                if (isNullA) return 1
+                if (isNullB) return -1
+
+                valA = Number(a[sortField])
+                valB = Number(b[sortField])
             }
-            if (valB === Infinity || valB === -Infinity) return -1
 
             if (sortOrder === 'asc') return valA - valB
             return valB - valA
