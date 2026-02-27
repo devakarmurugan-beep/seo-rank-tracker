@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Info, Plus, Sparkles, Target, Tag, X, Check, MoreHorizontal, ChevronRight, Globe, BarChart3, Upload, Loader2, Palette, FolderOpen, Trash2, ShoppingBag, ChevronDown, MapPin, ArrowLeft, TrendingDown, Clock } from 'lucide-react'
+import { Search, Info, Plus, Sparkles, Target, Tag, X, Check, MoreHorizontal, ChevronRight, Globe, BarChart3, Upload, Loader2, Palette, FolderOpen, Trash2, ShoppingBag, ChevronDown, MapPin, ArrowLeft, ChevronUp, ArrowUpDown } from 'lucide-react'
 import { allGSCKeywords, trackingKeywords, categoryCards } from './data'
 import { supabase } from './lib/supabase'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+
 
 
 /* 5-tier position color */
@@ -136,10 +136,8 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     const [categories, setCategories] = useState([])
     const [catSaveError, setCatSaveError] = useState('')
 
-    // ═══ DRILL DOWN STATE ═══
-    const [showDrillDown, setShowDrillDown] = useState(false)
-    const [drillDownData, setDrillDownData] = useState([])
-    const [isDrillingDown, setIsDrillingDown] = useState(false)
+    // ═══ SORT STATE ═══
+    const [posSortOrder, setPosSortOrder] = useState(null) // null | 'asc' | 'desc'
 
     // ═══ SEARCH STATE ═══
     const [allKwSearch, setAllKwSearch] = useState('')
@@ -407,47 +405,12 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         setSelectedLocation(null)
     }, [activeSite?.id])
 
-    const handleOpenDrillDown = () => {
-        setIsDrillingDown(true)
-        setShowDrillDown(true)
-
-        // Identify top 5 keywords based on impressions in the current view
-        const sourceData = kwTab === 'tracking' ? filteredTracking : (filteredGSC || [])
-        const top5 = [...sourceData]
-            .sort((a, b) => (b.impressions || 0) - (a.impressions || 0))
-            .slice(0, 5)
-
-        // Aggregate history for these 5 keywords
-        // We group by date and show Avg. Position
-        const historyMap = {}
-
-        top5.forEach(kw => {
-            const hist = kw.keyword_history || []
-            hist.forEach(h => {
-                const date = h.date
-                if (!historyMap[date]) historyMap[date] = { date, sum: 0, count: 0, keywords: [] }
-
-                // N/R Rule: If impressions < 10, don't count towards numerical average in drill down
-                const impressions = h.impressions || 0
-                if (impressions >= 10) {
-                    historyMap[date].sum += Number(h.position)
-                    historyMap[date].count += 1
-                }
-                historyMap[date].keywords.push({ keyword: kw.keyword, position: impressions < 10 ? 'N/R' : h.position, impressions })
-            })
-        })
-
-        const chartData = Object.keys(historyMap).sort().map(d => {
-            const entry = historyMap[d]
-            return {
-                date: d,
-                avgPosition: entry.count > 0 ? parseFloat((entry.sum / entry.count).toFixed(1)) : null,
-                details: entry.keywords
-            }
-        })
-
-        setDrillDownData(chartData)
-        setIsDrillingDown(false)
+    const handlePosSortToggle = () => {
+        if (posSortOrder === null) setPosSortOrder('asc')
+        else if (posSortOrder === 'asc') setPosSortOrder('desc')
+        else setPosSortOrder(null)
+        setAllKwPage(1)
+        setTrackingKwPage(1)
     }
 
     if (isLoadingData) {
@@ -671,6 +634,24 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         filteredTracking = filteredTracking.filter(kw => kw.keyword.toLowerCase().includes(q))
     }
 
+    // ═══ POSITION SORTING LOGIC ═══
+    const sortKeywordsByPos = (list) => {
+        if (!posSortOrder) return list
+        return [...list].sort((a, b) => {
+            const aPos = (a.impressions < 10) ? Infinity : (a.position || 0)
+            const bPos = (b.impressions < 10) ? Infinity : (b.position || 0)
+
+            if (aPos === Infinity && bPos === Infinity) return 0
+            if (aPos === Infinity) return 1
+            if (bPos === Infinity) return -1
+
+            return posSortOrder === 'asc' ? aPos - bPos : bPos - aPos
+        })
+    }
+
+    filteredGSC = sortKeywordsByPos(filteredGSC)
+    filteredTracking = sortKeywordsByPos(filteredTracking)
+
     // Calculate Matrix Columns (Oldest to Newest, spaced by Interval)
     let matrixDates = []
     if (trackingViewMode === 'matrix') {
@@ -846,7 +827,14 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
                                         <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
                                         <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>View Page</th>
-                                        <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider cursor-pointer hover:text-[#2563EB] transition-colors`} onClick={handleOpenDrillDown} title="Click to view average position trend">Position</th>
+                                        <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider cursor-pointer group/sort transition-colors`} onClick={handlePosSortToggle}>
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                <span className={posSortOrder ? 'text-[#2563EB]' : ''}>Position</span>
+                                                {posSortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-[#2563EB]" /> :
+                                                    posSortOrder === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-[#2563EB]" /> :
+                                                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover/sort:opacity-100 transition-opacity" />}
+                                            </div>
+                                        </th>
                                         <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Impressions</th>
                                         <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Clicks</th>
                                         <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>CTR</th>
@@ -1005,7 +993,14 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                         <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
                                             <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
                                             <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>View Page</th>
-                                            <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider cursor-pointer hover:text-[#2563EB] transition-colors`} onClick={handleOpenDrillDown} title="Click to view average position trend">Position</th>
+                                            <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider cursor-pointer group/sort transition-colors`} onClick={handlePosSortToggle}>
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <span className={posSortOrder ? 'text-[#2563EB]' : ''}>Position</span>
+                                                    {posSortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-[#2563EB]" /> :
+                                                        posSortOrder === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-[#2563EB]" /> :
+                                                            <ArrowUpDown className="w-3 h-3 opacity-0 group-hover/sort:opacity-100 transition-opacity" />}
+                                                </div>
+                                            </th>
                                             <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Impressions</th>
                                             <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Clicks</th>
                                             <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>CTR</th>
@@ -1560,142 +1555,6 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                             <button onClick={handleCreateCategory} className="flex items-center gap-1.5 px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg">
                                 <Plus className="w-3.5 h-3.5" />Create Category
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* ═══ POSITION DRILL DOWN MODAL ═══ */}
-            {showDrillDown && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" style={{ backdropFilter: 'blur(4px)' }}>
-                    <div className="bg-white rounded-2xl w-[800px] max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] bg-white">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                                    <BarChart3 className="w-5 h-5 text-[#2563EB]" />
-                                </div>
-                                <div>
-                                    <h3 className="text-[16px] font-bold text-[#111827]">Position Trend Drill Down</h3>
-                                    <p className="text-[12px] text-[#6B7280]">Average Position for Top Performing Keywords</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setShowDrillDown(false)} className="p-2 hover:bg-[#F9FAFB] rounded-lg transition-colors"><X className="w-5 h-5 text-[#9CA3AF]" /></button>
-                        </div>
-
-                        {/* Body */}
-                        <div className="p-6 overflow-y-auto flex-1 bg-[#F9FAFB]/50">
-                            {isDrillingDown ? (
-                                <div className="flex flex-col items-center justify-center py-20 gap-3">
-                                    <Loader2 className="w-8 h-8 text-[#2563EB] animate-spin" />
-                                    <p className="text-[13px] text-[#6B7280] font-medium">Analyzing historical trends...</p>
-                                </div>
-                            ) : drillDownData.length === 0 ? (
-                                <div className="text-center py-20">
-                                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#E5E7EB]">
-                                        <TrendingDown className="w-8 h-8 text-[#9CA3AF] opacity-40" />
-                                    </div>
-                                    <p className="text-[15px] font-semibold text-[#111827]">No trend data available</p>
-                                    <p className="text-[13px] text-[#6B7280] mt-1">Historically, we haven't tracked these keywords in this date range.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    {/* Chart */}
-                                    <div className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm">
-                                        <div className="h-[300px] w-full">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <AreaChart data={drillDownData}>
-                                                    <defs>
-                                                        <linearGradient id="colorPos" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1} />
-                                                            <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                                                    <XAxis
-                                                        dataKey="date"
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                        tick={{ fontSize: 10, fill: '#94A3B8' }}
-                                                        tickFormatter={(val) => {
-                                                            const d = new Date(val);
-                                                            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                                                        }}
-                                                    />
-                                                    <YAxis
-                                                        reversed
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                        tick={{ fontSize: 10, fill: '#94A3B8' }}
-                                                        domain={[1, 'dataMax + 10']}
-                                                    />
-                                                    <Tooltip
-                                                        content={({ active, payload }) => {
-                                                            if (active && payload && payload.length) {
-                                                                const data = payload[0].payload;
-                                                                return (
-                                                                    <div className="bg-white p-4 border border-[#E5E7EB] rounded-xl shadow-xl ring-4 ring-black/5 min-w-[200px]">
-                                                                        <p className="text-[11px] font-bold text-[#94A3B8] uppercase tracking-wider mb-2 border-b border-[#F1F5F9] pb-2">{new Date(data.date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-                                                                        <div className="flex items-center justify-between mb-3">
-                                                                            <span className="text-[13px] font-medium text-[#4B5563]">Avg. Position</span>
-                                                                            <span className="text-[14px] font-bold text-[#111827]">#{data.avgPosition || 'N/R'}</span>
-                                                                        </div>
-                                                                        <div className="space-y-2 pt-2">
-                                                                            {data.details.map((kw, i) => (
-                                                                                <div key={i} className="flex items-center justify-between text-[12px]">
-                                                                                    <span className="text-[#64748B] truncate max-w-[120px]">{kw.keyword}</span>
-                                                                                    <span className={`font-bold ${kw.position === 'N/R' ? 'text-[#9CA3AF]' : 'text-[#2563EB]'}`}>
-                                                                                        {kw.position === 'N/R' ? 'N/R' : `#${kw.position}`}
-                                                                                    </span>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                        {data.details.some(k => k.position === 'N/R') && (
-                                                                            <p className="text-[10px] text-[#9CA3AF] mt-3 pt-2 border-t border-[#F1F5F9] italic">N/R: Not Reliable (under 10 impressions)</p>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            }
-                                                            return null;
-                                                        }}
-                                                    />
-                                                    <Area type="monotone" dataKey="avgPosition" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#colorPos)" connectNulls />
-                                                </AreaChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-
-                                    {/* Info Board */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-white p-4 rounded-xl border border-[#E5E7EB] shadow-sm">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Target className="w-4 h-4 text-[#2563EB]" />
-                                                <span className="text-[12px] font-bold text-[#111827] uppercase">Analysis Engine</span>
-                                            </div>
-                                            <p className="text-[12px] text-[#6B7280] leading-relaxed">
-                                                Showing trends for top-impression keywords in the current range. <br />
-                                                <span className="font-bold text-[#111827]">Statistical Significance:</span> Ranks for days with fewer than 10 impressions are ignored (N/R).
-                                            </p>
-                                        </div>
-                                        <div className="bg-white p-4 rounded-xl border border-[#E5E7EB] shadow-sm">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Clock className="w-4 h-4 text-[#2563EB]" />
-                                                <span className="text-[12px] font-bold text-[#111827] uppercase">Date range focus</span>
-                                            </div>
-                                            <p className="text-[12px] text-[#6B7280] leading-relaxed">
-                                                This view is strictly synced to your selected date range:<br />
-                                                <span className="font-bold text-[#2563EB]">
-                                                    {typeof dateRange === 'object' ? `${dateRange.start} to ${dateRange.end}` : dateRange}
-                                                </span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-6 py-4 border-t border-[#E5E7EB] bg-[#F9FAFB] flex items-center justify-end">
-                            <button onClick={() => setShowDrillDown(false)} className="px-5 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-[13px] font-bold text-[#111827] hover:bg-gray-50 transition-all shadow-sm">Close Analysis</button>
                         </div>
                     </div>
                 </div>
