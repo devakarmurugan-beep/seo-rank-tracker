@@ -137,7 +137,8 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     const [catSaveError, setCatSaveError] = useState('')
 
     // ═══ SORT STATE ═══
-    const [posSortOrder, setPosSortOrder] = useState(null) // null | 'asc' | 'desc'
+    const [sortField, setSortField] = useState(null) // 'position' | 'impressions' | 'clicks' | 'ctr'
+    const [sortOrder, setSortOrder] = useState(null) // null | 'asc' | 'desc'
 
     // ═══ SEARCH STATE ═══
     const [allKwSearch, setAllKwSearch] = useState('')
@@ -405,12 +406,42 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         setSelectedLocation(null)
     }, [activeSite?.id])
 
-    const handlePosSortToggle = () => {
-        if (posSortOrder === null) setPosSortOrder('asc')
-        else if (posSortOrder === 'asc') setPosSortOrder('desc')
-        else setPosSortOrder(null)
+    const handleSort = (field) => {
+        if (sortField !== field) {
+            setSortField(field)
+            // Position defaults to #1 at top (asc), others to High at top (desc)
+            setSortOrder(field === 'position' ? 'asc' : 'desc')
+        } else {
+            if (sortOrder === (field === 'position' ? 'asc' : 'desc')) {
+                setSortOrder(field === 'position' ? 'desc' : 'asc')
+            } else if (sortOrder === (field === 'position' ? 'desc' : 'asc')) {
+                setSortOrder(null)
+                setSortField(null)
+            } else {
+                setSortOrder(field === 'position' ? 'asc' : 'desc')
+            }
+        }
         setAllKwPage(1)
         setTrackingKwPage(1)
+    }
+
+    const renderSortHeader = (label, field, alignment = 'center') => {
+        const isActive = sortField === field
+        return (
+            <th
+                className={`text-${alignment} px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider cursor-pointer group/sort transition-colors`}
+                onClick={() => handleSort(field)}
+            >
+                <div className={`flex items-center ${alignment === 'center' ? 'justify-center' : alignment === 'right' ? 'justify-end' : 'justify-start'} gap-1.5`}>
+                    <span className={isActive ? 'text-[#2563EB]' : ''}>{label}</span>
+                    {isActive ? (
+                        sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-[#2563EB]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#2563EB]" />
+                    ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover/sort:opacity-100 transition-opacity" />
+                    )}
+                </div>
+            </th>
+        )
     }
 
     if (isLoadingData) {
@@ -634,23 +665,34 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         filteredTracking = filteredTracking.filter(kw => kw.keyword.toLowerCase().includes(q))
     }
 
-    // ═══ POSITION SORTING LOGIC ═══
-    const sortKeywordsByPos = (list) => {
-        if (!posSortOrder) return list
+    // ═══ KEYWORD SORTING LOGIC ═══
+    const sortKeywords = (list) => {
+        if (!sortField || !sortOrder) return list
         return [...list].sort((a, b) => {
-            const aPos = (a.impressions < 10) ? Infinity : (a.position || 0)
-            const bPos = (b.impressions < 10) ? Infinity : (b.position || 0)
+            let valA, valB
 
-            if (aPos === Infinity && bPos === Infinity) return 0
-            if (aPos === Infinity) return 1
-            if (bPos === Infinity) return -1
+            if (sortField === 'position') {
+                valA = (a.impressions < 10) ? Infinity : (a.position || Infinity)
+                valB = (b.impressions < 10) ? Infinity : (b.position || Infinity)
+            } else {
+                valA = a[sortField] ?? -Infinity
+                valB = b[sortField] ?? -Infinity
+            }
 
-            return posSortOrder === 'asc' ? aPos - bPos : bPos - aPos
+            // Always push N/R or nulls to bottom
+            if (valA === Infinity || valA === -Infinity) {
+                if (valB === Infinity || valB === -Infinity) return 0
+                return 1
+            }
+            if (valB === Infinity || valB === -Infinity) return -1
+
+            if (sortOrder === 'asc') return valA - valB
+            return valB - valA
         })
     }
 
-    filteredGSC = sortKeywordsByPos(filteredGSC)
-    filteredTracking = sortKeywordsByPos(filteredTracking)
+    filteredGSC = sortKeywords(filteredGSC)
+    filteredTracking = sortKeywords(filteredTracking)
 
     // Calculate Matrix Columns (Oldest to Newest, spaced by Interval)
     let matrixDates = []
@@ -827,17 +869,10 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
                                         <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
                                         <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>View Page</th>
-                                        <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider cursor-pointer group/sort transition-colors`} onClick={handlePosSortToggle}>
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                <span className={posSortOrder ? 'text-[#2563EB]' : ''}>Position</span>
-                                                {posSortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-[#2563EB]" /> :
-                                                    posSortOrder === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-[#2563EB]" /> :
-                                                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover/sort:opacity-100 transition-opacity" />}
-                                            </div>
-                                        </th>
-                                        <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Impressions</th>
-                                        <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Clicks</th>
-                                        <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>CTR</th>
+                                        {renderSortHeader('Position', 'position', 'center')}
+                                        {renderSortHeader('Impressions', 'impressions', 'right')}
+                                        {renderSortHeader('Clicks', 'clicks', 'right')}
+                                        {renderSortHeader('CTR', 'ctr', 'right')}
                                         <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Intent</th>
                                         <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
                                     </tr></thead>
@@ -993,17 +1028,10 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                         <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
                                             <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
                                             <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>View Page</th>
-                                            <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider cursor-pointer group/sort transition-colors`} onClick={handlePosSortToggle}>
-                                                <div className="flex items-center justify-center gap-1.5">
-                                                    <span className={posSortOrder ? 'text-[#2563EB]' : ''}>Position</span>
-                                                    {posSortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-[#2563EB]" /> :
-                                                        posSortOrder === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-[#2563EB]" /> :
-                                                            <ArrowUpDown className="w-3 h-3 opacity-0 group-hover/sort:opacity-100 transition-opacity" />}
-                                                </div>
-                                            </th>
-                                            <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Impressions</th>
-                                            <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Clicks</th>
-                                            <th className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>CTR</th>
+                                            {renderSortHeader('Position', 'position', 'center')}
+                                            {renderSortHeader('Impressions', 'impressions', 'right')}
+                                            {renderSortHeader('Clicks', 'clicks', 'right')}
+                                            {renderSortHeader('CTR', 'ctr', 'right')}
                                             <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Intent</th>
                                             <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
                                         </tr></thead>
