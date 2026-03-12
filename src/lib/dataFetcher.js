@@ -201,11 +201,23 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
             const displayClicks      = impressions === 0 ? '-' : clicks
             const displayCtr         = impressions > 0  ? clicks / impressions : 0
 
-            // Change: prevPeriodAvgPos − currPeriodAvgPos 
-            // Positive = improved (moved up, smaller position number)
+            // ── Change Calculation ──────────────────────────────────────────────────
+            // Priority order:
+            // 1. Best: exact previous-period weighted avg vs current-period weighted avg
+            //    (requires ~56 days of synced history)
+            // 2. Fallback: current-period avg vs the 90-day cache baseline
+            //    (works as long as the keyword has been synced at least once)
+            // Positive = improved (rank went UP = lower position number = better)
             let change = 0
-            if (curr?.avgPos && prev?.avgPos) {
-                change = parseFloat((prev.avgPos - curr.avgPos).toFixed(1))
+            if (curr?.avgPos) {
+                if (prev?.avgPos) {
+                    // Best case: period-vs-period
+                    change = parseFloat((prev.avgPos - curr.avgPos).toFixed(1))
+                } else if (cache.avg_pos && curr.avgPos !== cache.avg_pos) {
+                    // Fallback: compare current period against 90-day cache baseline
+                    // Positive = current period is BETTER than the long-term average
+                    change = parseFloat((cache.avg_pos - curr.avgPos).toFixed(1))
+                }
             }
 
             // Best position in current period

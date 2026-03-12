@@ -112,24 +112,29 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', i
         return num.toLocaleString()
     }
 
-    // Calculate Top Gainers and Losers (date-filtered)
+    // Calculate Top Gainers and Losers
+    // change > 0 means the keyword improved (lower position number = better rank)
     const sortedByChange = [...filteredKeywords].sort((a, b) => b.change - a.change)
     const topGainersDynamic = sortedByChange.filter(kw => kw.change > 0).slice(0, 5)
 
     const sortedByLosses = [...filteredKeywords].sort((a, b) => a.change - b.change)
     const topLosersDynamic = sortedByLosses.filter(kw => kw.change < 0).slice(0, 5)
 
-    // Keyword Distribution (date-filtered positions)
+    // Keyword Distribution — uses rawPosition (the actual numeric position)
+    // NOT displayPosition (which is 'N/R' for < 10 impressions).
+    // We want to count ALL keywords that have ANY position, even low-volume ones.
     const distribution = [
         { name: 'Rank 1-3', value: 0, color: '#059669', icon: 'trophy', min: 1, max: 3 },
         { name: 'Rank 4-10', value: 0, color: '#0284C7', icon: 'circleCheck', min: 4, max: 10 },
         { name: 'Rank 11-20', value: 0, color: '#D97706', icon: 'triangleAlert', min: 11, max: 20 },
-        { name: 'Rank 20+', value: 0, color: '#DC2626', icon: 'arrowDown', min: 21, max: 1000 }
+        { name: 'Rank 20+', value: 0, color: '#DC2626', icon: 'arrowDown', min: 21, max: 999 }
     ]
 
     filteredKeywords.forEach(kw => {
-        const pos = kw.position
-        if (typeof pos === 'number') {
+        // rawPosition is always a number (or 1000 for truly no-data keywords)
+        // 1000 is the sentinel "no position" value set in dataFetcher, skip those
+        const pos = typeof kw.rawPosition === 'number' && kw.rawPosition < 999 ? kw.rawPosition : null
+        if (pos !== null) {
             const dist = distribution.find(d => pos >= d.min && pos <= d.max)
             if (dist) dist.value++
         }
