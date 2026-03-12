@@ -1,6 +1,6 @@
 import { Key, FileText, TrendingUp, TrendingDown, MousePointerClick, Target, Plus, Clock, UserPlus, ChevronRight, RefreshCw, Trophy, CircleCheck, TriangleAlert, ArrowDown, Globe, BarChart3, X } from 'lucide-react'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
-import { trendData, distributionData, topGainers, topLosers, intentData } from './data'
+import { getGSCDateRange, getRangeLabel } from './lib/dateUtils'
 
 /* 5-tier rank badge */
 const getPosBadge = (pos) => {
@@ -16,65 +16,25 @@ const distIcons = { trophy: Trophy, circleCheck: CircleCheck, triangleAlert: Tri
 import { useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 
-export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData, isTrial }) {
+export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData, isTrial }) {
     const location = useLocation()
     const query = new URLSearchParams(location.search)
     const isPaymentSuccess = query.get('payment') === 'success'
     const cp = compact
 
     // ═══ DATE RANGE FILTERING ═══
-    // Compute the date window based on the selected range
-    const getDaysFromRange = (range) => {
-        if (typeof range === 'object' && range.type === 'custom') {
-            const s = new Date(range.start)
-            const e = new Date(range.end)
-            return Math.ceil(Math.abs(e - s) / (1000 * 60 * 60 * 24)) || 1
-        }
-        switch (range) {
-            case '7d': return 7
-            case '30d': return 30
-            case '90d': return 90
-            case '1y': return 365
-            case '16m': return 480
-            default: return 30
-        }
-    }
-    const days = getDaysFromRange(dateRange)
-    const now = new Date()
-    const rangeStart = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000))
-    const rangeStartStr = rangeStart.toISOString().split('T')[0]
+    // dataFetcher already fetched the correct period from the DB and computed:
+    //   - kw.totalImpressions, kw.totalClicks: sum for the selected period
+    //   - kw.position: weighted-average position for the period  
+    //   - kw.change: previousPeriodAvgPos - currentPeriodAvgPos (positive = improved)
+    // We use these directly — no need to re-filter history locally.
+    const { startDate: rangeStartStr, endDate: rangeEndStr } = getGSCDateRange(dateRange)
 
-    // Previous period for comparison (same length window, right before current)
-    const prevRangeStart = new Date(rangeStart.getTime() - (days * 24 * 60 * 60 * 1000))
-    const prevRangeStartStr = prevRangeStart.toISOString().split('T')[0]
-
-    // Filter each keyword's history to the selected date range, then recompute metrics
-    const filteredKeywords = trackedKeywords.map(kw => {
-        const fullHistory = kw.history || []
-        const rangeHistory = fullHistory.filter(h => h.date >= rangeStartStr)
-        const prevHistory = fullHistory.filter(h => h.date >= prevRangeStartStr && h.date < rangeStartStr)
-
-        const latest = rangeHistory[0] || fullHistory[0] || {}
-        const previous = rangeHistory[1] || {}
-        const change = (latest.position && previous.position) ? previous.position - latest.position : 0
-        const rangeClicks = rangeHistory.reduce((sum, h) => sum + (h.clicks || 0), 0)
-        const rangeImpressions = rangeHistory.reduce((sum, h) => sum + (h.impressions || 0), 0)
-        const prevClicks = prevHistory.reduce((sum, h) => sum + (h.clicks || 0), 0)
-
-        return {
-            ...kw,
-            position: latest.position || '-',
-            change,
-            clicks: latest.clicks || 0,
-            impressions: latest.impressions || 0,
-            totalClicks: rangeClicks,
-            totalImpressions: rangeImpressions,
-            prevClicks,
-            ctr: latest.ctr || 0,
-            page: latest.page_url || kw.page || '-',
-            hasDataInRange: rangeHistory.length > 0
-        }
-    })
+    // filteredKeywords = trackedKeywords enriched with already-computed period metrics
+    const filteredKeywords = trackedKeywords.map(kw => ({
+        ...kw,
+        hasDataInRange: kw.totalImpressions > 0 || typeof kw.rawPosition === 'number',
+    }))
 
     // Only count keywords that have data in the selected range for position-based metrics
     const kwWithData = filteredKeywords.filter(kw => kw.hasDataInRange)
@@ -288,10 +248,7 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '30d', i
                             <span className={`metric-value ${cp ? 'text-[28px]' : 'text-[36px]'} text-[#111827]`}>{card.value}</span>
                             {card.change && <span className={`text-[13px] font-medium flex items-center gap-0.5 mb-1 tabular-nums ${card.positive ? 'text-[#059669]' : 'text-[#DC2626]'}`}>{card.positive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}{card.change}</span>}
                         </div>
-                        <span className="text-[11px] text-[#9CA3AF] font-normal mt-2 block">{
-                            typeof dateRange === 'object' ? `Custom: ${dateRange.start} to ${dateRange.end}` :
-                                dateRange === '7d' ? 'Last 7 days' : dateRange === '30d' ? 'Last 30 days' : dateRange === '90d' ? 'Last 90 days' : dateRange === '1y' ? 'Last 12 months' : 'Last 16 months'
-                        }</span>
+                        <span className="text-[11px] text-[#9CA3AF] font-normal mt-2 block">{getRangeLabel(dateRange)} · {rangeStartStr} → {rangeEndStr}</span>
                     </div>)
                 })}
             </div>

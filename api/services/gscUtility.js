@@ -39,7 +39,7 @@ export const fetchGSCRankingData = async (gscClient, siteUrl, startDate, endDate
             body.dimensionFilterGroups = [{
                 filters: [{
                     dimension: 'query',
-                    operator: 'equals',
+                    operator: 'contains',
                     expression: keyword
                 }]
             }]
@@ -61,15 +61,18 @@ export const fetchGSCRankingData = async (gscClient, siteUrl, startDate, endDate
             })
         ])
 
-        const historyRows = (historyRes.data.rows || []).map(row => ({
-            date: row.keys[0],
-            keyword: row.keys[1],
-            page_url: row.keys[2],
-            clicks: row.clicks,
-            impressions: row.impressions,
-            ctr: row.ctr,
-            position: row.position
-        }))
+        const keywordLower = keyword ? keyword.toLowerCase() : null
+        const historyRows = (historyRes.data.rows || [])
+            .filter(row => !keywordLower || (row.keys[1] && row.keys[1].toLowerCase() === keywordLower))
+            .map(row => ({
+                date: row.keys[0],
+                keyword: row.keys[1],
+                page_url: row.keys[2],
+                clicks: row.clicks,
+                impressions: row.impressions,
+                ctr: row.ctr,
+                position: row.position
+            }))
 
         const pageRows = (pagesRes.data.rows || []).map(row => row.keys[0])
 
@@ -103,7 +106,7 @@ export const classifyKeywordIntent = (keyword, brandVariations = []) => {
     const transKeywords = [
         'buy', 'purchase', 'pricing', 'price', 'cost', 'subscription', 'order',
         'coupon', 'discount', 'free trial', 'demo', 'get started', 'download',
-        'book', 'hire', 'near me', 'quote'
+        'book', 'hire', 'near me', 'quote', 'repair', 'fixing', 'repairing'
     ]
     if (transKeywords.some(w => normalized.includes(w))) {
         return 'Transactional'
@@ -113,7 +116,7 @@ export const classifyKeywordIntent = (keyword, brandVariations = []) => {
     const commKeywords = [
         'best', 'top', 'review', 'reviews', 'comparison', 'compare', 'vs',
         'alternative', 'alternatives', 'software', 'tool', 'tools', 'solution',
-        'platform', 'services'
+        'platform', 'services', 'service', 'center', 'centre', 'agency', 'training'
     ]
     if (commKeywords.some(w => normalized.includes(w))) {
         return 'Commercial'

@@ -17,13 +17,14 @@ import PricingGate from './PricingGate'
 import Privacy from './Privacy'
 import Terms from './Terms'
 import Settings from './Settings'
-import { getUserPlan } from './lib/permissions'
+import AdminDashboard from './AdminDashboard'
+import { getUserPlan, isAdmin } from './lib/permissions'
 
 function App() {
   const location = useLocation()
   const activePage = location.pathname.split('/')[1] || 'dashboard'
 
-  const [dateRange, setDateRange] = useState('30d')
+  const [dateRange, setDateRange] = useState('28d')
   const [kwTab, setKwTab] = useState('tracking')
   const [hasTrackingData, setHasTrackingData] = useState(false)
   const [posFilter, setPosFilter] = useState('All')
@@ -152,49 +153,6 @@ function App() {
       setTotalPages(finalPagesCount)
       setIntentData(distribution)
       setPageAnalytics(pagesAnalytics)
-
-      // Background sync for tracked keywords in chunks to avoid timeouts
-      const trackedIds = trulyTracked.map(k => k.id)
-      if (trackedIds.length > 0) {
-        const apiUrl = getApiUrl()
-        const CHUNK_SIZE = 50
-
-        const syncChunks = async () => {
-          let hasAnySuccess = false
-          for (let i = 0; i < trackedIds.length; i += CHUNK_SIZE) {
-            const chunk = trackedIds.slice(i, i + CHUNK_SIZE)
-            try {
-              const res = await fetch(`${apiUrl}/api/keywords/sync-specific`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ siteId: site.id, keywordIds: chunk })
-              })
-              const data = await res.json()
-              if (data.success) hasAnySuccess = true
-            } catch (err) {
-              console.error(`Background sync chunk ${i / CHUNK_SIZE} failed:`, err)
-            }
-          }
-
-          if (hasAnySuccess) {
-            // Re-fetch once at the end
-            const freshKws = await fetchTrackedKeywordsWithHistory(site.id, currentRange)
-            if (isTrial) {
-              const freshTrackedMap = new Map(freshKws.map(k => [k.keyword, k]));
-              const merged = [...freshKws];
-              keywords.forEach(tk => {
-                if (!tk.is_tracked && !freshTrackedMap.has(tk.keyword)) {
-                  merged.push(tk);
-                }
-              });
-              setTrackedKeywords(merged);
-            } else {
-              setTrackedKeywords(freshKws);
-            }
-          }
-        }
-        syncChunks()
-      }
     } catch (error) {
       console.error("Error loading site data:", error)
     } finally {
@@ -204,10 +162,6 @@ function App() {
 
   const syncSiteData = async (site) => {
     if (!site) return
-    if (isTrial) {
-      console.log("[App] Skipping database sync for Trial user.")
-      return
-    }
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user?.id) return
 
@@ -406,6 +360,7 @@ function App() {
           </div>
         } />
         <Route path="/settings" element={<Settings userSites={userSites} />} />
+        {isAdmin(session?.user) && <Route path="/admin" element={<AdminDashboard />} />}
       </Route>
 
       {/* Public Authentication Routes */}

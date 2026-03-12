@@ -407,19 +407,12 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     }, [activeSite?.id])
 
     const handleSort = (field) => {
-        // Strict 3-state cycle: Descending -> Ascending -> Reset
+        // Strict 2-state toggle: Descending -> Ascending
         if (sortField !== field) {
             setSortField(field)
             setSortOrder('desc')
         } else {
-            if (sortOrder === 'desc') {
-                setSortOrder('asc')
-            } else if (sortOrder === 'asc') {
-                setSortOrder(null)
-                setSortField(null)
-            } else {
-                setSortOrder('desc')
-            }
+            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
         }
         setAllKwPage(1)
         setTrackingKwPage(1)
@@ -434,10 +427,8 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             >
                 <div className={`flex items-center ${alignment === 'center' ? 'justify-center' : alignment === 'right' ? 'justify-end' : 'justify-start'} gap-1.5`}>
                     <span className={isActive ? 'text-[#2563EB]' : ''}>{label}</span>
-                    {isActive ? (
+                    {isActive && (
                         sortOrder === 'asc' ? <ChevronUp className="w-3.5 h-3.5 text-[#2563EB]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#2563EB]" />
-                    ) : (
-                        <ArrowUpDown className="w-3 h-3 opacity-0 group-hover/sort:opacity-100 transition-opacity" />
                     )}
                 </div>
             </th>
@@ -486,6 +477,18 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
 
     const handleBulkAddToTrack = async (keywords) => {
         if (!activeSite?.id || !keywords?.length) return
+
+        let keywordsToTrack = keywords
+        if (isTrial) {
+            const currentCount = trackedKeywords?.length || 0
+            const available = 50 - currentCount
+            if (available <= 0) {
+                alert("Trial Limit: You can only track up to 50 keywords. Please upgrade for more.")
+                return
+            }
+            keywordsToTrack = keywords.slice(0, available)
+        }
+
         setIsSaving(true)
         try {
             const apiUrl = getApiUrl()
@@ -494,7 +497,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     siteId: activeSite.id,
-                    keywords: keywords.map(kw => ({
+                    keywords: keywordsToTrack.map(kw => ({
                         keyword: kw.keyword,
                         category: kw.category || 'High-Volume Discovery',
                         expected_url: kw.page || null
@@ -604,6 +607,14 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             return
         }
 
+        if (isTrial) {
+            const currentCount = trackedKeywords?.length || 0
+            if (currentCount + keywordsToAdd.length > 50) {
+                setSaveError(`Trial Limit: You can only track up to 50 keywords. You already have ${currentCount}.`)
+                return
+            }
+        }
+
         setIsSaving(true)
         setSaveError('')
 
@@ -636,14 +647,6 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     // For this build, we map all keywords into both tabs just for UI demonstration of the live data integration.
     // In production, the backend sync would differentiate tracked (manually added) vs discovered keywords.
     let baseAllKeywords = trackedKeywords || [];
-    if (selectedCountryFilter !== 'All') {
-        const countryData = (locations || []).find(l => l?.countryCode === selectedCountryFilter)
-        if (countryData && countryData.keywords) {
-            baseAllKeywords = countryData.keywords;
-        } else {
-            baseAllKeywords = [];
-        }
-    }
 
     let filteredGSC = posFilter === 'All' ? baseAllKeywords : baseAllKeywords.filter((kw) => {
         if (posFilter === 'Top 3') return kw.position <= 3
@@ -672,30 +675,33 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             let valA, valB
 
             if (sortField === 'position') {
-                // N/R Rule: impressions < 10 or no position
-                const isNR_A = (a.impressions < 10 || !a.position)
-                const isNR_B = (b.impressions < 10 || !b.position)
+                // N/R Rule: based on totalImpressions and rawPosition from dataFetcher
+                const isNR_A = a.position === 'N/R'
+                const isNR_B = b.position === 'N/R'
 
                 // Push N/R to bottom always
                 if (isNR_A && isNR_B) return 0
                 if (isNR_A) return 1
                 if (isNR_B) return -1
 
-                valA = Number(a.position)
-                valB = Number(b.position)
+                valA = Number(a.rawPosition)
+                valB = Number(b.rawPosition)
             } else {
-                const isNullA = a[sortField] === null || a[sortField] === undefined || a[sortField] === '-'
-                const isNullB = b[sortField] === null || b[sortField] === undefined || b[sortField] === '-'
+                const isNullA = a.totalImpressions === 0 || a[sortField] === '-'
+                const isNullB = b.totalImpressions === 0 || b[sortField] === '-'
 
                 // Push nulls/dashes to bottom always
                 if (isNullA && isNullB) return 0
                 if (isNullA) return 1
                 if (isNullB) return -1
 
-                valA = Number(a[sortField])
-                valB = Number(b[sortField])
+                // Use the total metrics for impressions/clicks sorting
+                if (sortField === 'impressions') { valA = a.totalImpressions; valB = b.totalImpressions }
+                else if (sortField === 'clicks') { valA = a.totalClicks; valB = b.totalClicks }
+                else { valA = Number(a[sortField]); valB = Number(b[sortField]) }
             }
 
+            // Descending logic (default)
             if (sortOrder === 'asc') return valA - valB
             return valB - valA
         })
@@ -825,7 +831,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                 </div>
                                 <div>
                                     <p className="text-[14px] text-[#334155] font-semibold mb-0.5">{isTrial ? 'Trial View: Discovered GSC Keywords' : 'Organic Intelligence Data'}</p>
-                                    <p className="text-[13px] text-[#64748B] font-normal leading-relaxed">{isTrial ? 'Top 25 High-Volume Discovery Keywords' : 'All Keywords are automatically pulled from Search Console daily.'}</p>
+                                    <p className="text-[13px] text-[#64748B] font-normal leading-relaxed">{isTrial ? 'Top 50 High-Volume Discovery Keywords' : 'All Keywords are automatically pulled from Search Console daily.'}</p>
                                     {!isTrial && <p className="text-[12px] text-[#2563EB] mt-2 font-medium">Add to <button onClick={() => handleKwTab('tracking')} className="hover:underline font-bold">Tracking Keywords</button> for historical analysis.</p>}
                                 </div>
                             </div>
@@ -836,23 +842,6 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                             <button key={f} onClick={() => handlePosFilter(f)} className={`px-4 py-1.5 rounded-lg text-[12px] font-bold transition-all ${posFilter === f ? 'bg-white text-[#2563EB] shadow-sm' : 'text-[#64748B] hover:text-[#111827]'}`}>{f}</button>
                                         ))}
                                     </div>
-                                    <div className="w-px h-6 bg-[#E5E7EB] mx-1"></div>
-                                    <div className="relative group">
-                                        <MapPin className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2 z-10" />
-                                        <select
-                                            value={selectedCountryFilter}
-                                            onChange={(e) => setSelectedCountryFilter(e.target.value)}
-                                            className="appearance-none pl-10 pr-10 py-2 border border-[#E5E7EB] rounded-xl text-[13px] font-semibold text-[#334155] bg-white cursor-pointer hover:border-[#D1D5DB] focus:outline-none focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/5 transition-all w-[180px]"
-                                        >
-                                            <option value="All">All Regions</option>
-                                            {meaningfulLocations.map(loc => {
-                                                const countryCode = loc?.countryCode || 'Unknown';
-                                                const cInfo = gscCountryMap[countryCode] || { name: countryCode.toUpperCase(), emoji: '🌍' }
-                                                return <option key={countryCode} value={countryCode}>{cInfo.name}</option>
-                                            })}
-                                        </select>
-                                        <ChevronDown className="w-4 h-4 text-[#9CA3AF] pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 group-hover:text-[#4B5563] transition-colors" />
-                                    </div>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <div className="relative group min-w-[280px]">
@@ -861,7 +850,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     </div>
                                     {isTrial && filteredGSC?.length > 0 && (
                                         <button
-                                            onClick={() => handleBulkAddToTrack(filteredGSC.slice(0, 25))}
+                                            onClick={() => handleBulkAddToTrack(filteredGSC.slice(0, 50))}
                                             disabled={isSaving}
                                             className="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-2 disabled:bg-[#9CA3AF]"
                                         >
@@ -870,109 +859,128 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                         </button>
                                     )}
                                     <div className="px-3 py-1.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg text-[11px] font-bold text-[#64748B] uppercase tracking-wider tabular-nums">
-                                        25 Limit
+                                        50 Limit
                                     </div>
                                 </div>
                             </div>
                             <div className="premium-card overflow-hidden">
-                                <table className="w-full">
-                                    <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                                        <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
-                                        <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>View Page</th>
-                                        {renderSortHeader('Position', 'position', 'center')}
-                                        {renderSortHeader('Impressions', 'impressions', 'right')}
-                                        {renderSortHeader('Clicks', 'clicks', 'right')}
-                                        {renderSortHeader('CTR', 'ctr', 'right')}
-                                        <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Intent</th>
-                                        <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
-                                    </tr></thead>
-                                    <tbody>
-                                        {(() => {
-                                            const displayList = filteredGSC || [];
-                                            if (displayList.length === 0 && !isLoadingData) {
-                                                return (
-                                                    <tr>
-                                                        <td colSpan="8" className="py-16 text-center">
-                                                            <div className="flex flex-col items-center justify-center">
-                                                                <div className="w-16 h-16 bg-[#F9FAFB] rounded-full flex items-center justify-center mb-4">
-                                                                    <Search className="w-8 h-8 text-[#9CA3AF] opacity-20" />
+                                <div className="overflow-x-auto max-w-full">
+                                    <table className="w-full table-fixed">
+                                        <colgroup>
+                                            <col className="w-[280px]" />
+                                            <col className="w-[120px]" />
+                                            <col className="w-[100px]" />
+                                            <col className="w-[110px]" />
+                                            <col className="w-[100px]" />
+                                            <col className="w-[100px]" />
+                                            <col className="w-[100px]" />
+                                            <col className="w-[120px]" />
+                                        </colgroup>
+                                        <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                                            <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
+                                            <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>View Page</th>
+                                            {renderSortHeader('Position', 'position', 'center')}
+                                            {renderSortHeader('Impressions', 'impressions', 'right')}
+                                            {renderSortHeader('Clicks', 'clicks', 'right')}
+                                            {renderSortHeader('CTR', 'ctr', 'right')}
+                                            <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Intent</th>
+                                            <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
+                                        </tr></thead>
+                                        <tbody>
+                                            {(() => {
+                                                const displayList = filteredGSC || [];
+                                                if (displayList.length === 0 && !isLoadingData) {
+                                                    return (
+                                                        <tr>
+                                                            <td colSpan="8" className="py-16 text-center">
+                                                                <div className="flex flex-col items-center justify-center">
+                                                                    <div className="w-16 h-16 bg-[#F9FAFB] rounded-full flex items-center justify-center mb-4">
+                                                                        <Search className="w-8 h-8 text-[#9CA3AF] opacity-20" />
+                                                                    </div>
+                                                                    <p className="text-[15px] font-semibold text-[#111827]">No keywords found</p>
+                                                                    <p className="text-[13px] text-[#6B7280] mt-1 max-w-xs mx-auto">
+                                                                        {isTrial
+                                                                            ? "We didn't find any non-branded keywords for this site in the top positions."
+                                                                            : "Try adjusting your filters or search query to find more results."}
+                                                                    </p>
                                                                 </div>
-                                                                <p className="text-[15px] font-semibold text-[#111827]">No keywords found</p>
-                                                                <p className="text-[13px] text-[#6B7280] mt-1 max-w-xs mx-auto">
-                                                                    {isTrial
-                                                                        ? "We didn't find any non-branded keywords for this site in the top positions."
-                                                                        : "Try adjusting your filters or search query to find more results."}
-                                                                </p>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                // Regular table rows
+                                                return displayList.slice((allKwPage - 1) * itemsPerPage, allKwPage * itemsPerPage).map((kw, i) => {
+                                                    const kwStringId = kw.keyword;
+                                                    const intent = classifyIntent(kw.keyword)
+                                                    const iColor = intentColor(intent)
+                                                    const isAdded = addingToTrack[kwStringId] === 'done'
+
+                                                    return (
+                                                        <tr key={`${kw.keyword}-${i}`} className="border-b border-[#F3F4F6] hover:bg-[#FAFBFC] group transition-colors">
+                                                            <td className={`px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[13px] font-medium text-[#4B5563] truncate" title={kw.keyword}>
+                                                                        {kw.keyword}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className={`px-3 ${cp ? 'py-2.5' : 'py-4'} text-[12px] font-medium`}>
+                                                                {kw.page ? (
+                                                                    <a href={kw.page} target="_blank" rel="noopener noreferrer" className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline" title={kw.page} onClick={(e) => e.stopPropagation()}>Visit Page</a>
+                                                                ) : '-'}
+                                                            </td>
+                                                            <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                                {kw.position === 'N/R' ? (
+                                                                    <span className="text-[11px] font-bold text-[#9CA3AF] cursor-help" title="Not Reliable: Fewer than 10 impressions">N/R</span>
+                                                                ) : (
+                                                                    <span className="font-mono-data text-[13px] font-semibold text-[#4B5563]">
+                                                                        #{typeof kw.position === 'number' ? kw.position.toFixed(1) : kw.position}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.impressions !== undefined && kw.impressions !== '-' ? kw.impressions.toLocaleString() : '-'}</td>
+                                                            <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.clicks !== undefined && kw.clicks !== '-' ? kw.clicks.toLocaleString() : '-'}</td>
+                                                            <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.ctr !== undefined && kw.ctr !== '-' ? (kw.ctr * 100).toFixed(2) + '%' : '-'}</td>
+                                                            <td className={`px-3 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider" style={{ backgroundColor: iColor.bg, color: iColor.text }}>{intent}</span>
+                                                            </td>
+                                                            <td className={`text-center px-3 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                                {isAdded ? (
+                                                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#059669] uppercase"><Check className="w-3.5 h-3.5" /> Added</span>
+                                                                ) : (
+                                                                    !isTrial && (
+                                                                        <button onClick={(e) => { e.stopPropagation(); setBasketDropdown(basketDropdown === kwStringId ? null : kwStringId) }} className="p-1.5 hover:bg-[#F3F4F6] rounded-lg transition-colors text-[#9CA3AF] hover:text-[#4B5563] ml-auto">
+                                                                            <ShoppingBag className="w-4 h-4" />
+                                                                        </button>
+                                                                    )
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            })()}
+                                            {isTrial && (
+                                                <tr>
+                                                    <td colSpan="8" className="px-5 py-6 text-center bg-[#F9FAFB]/50">
+                                                        <div className="flex flex-col items-center justify-center gap-2">
+                                                            <p className="text-[13px] text-[#6B7280] font-medium">Currently viewing 50 restricted keywords from GSC.</p>
+                                                            <button
+                                                                onClick={() => navigate('/settings')}
+                                                                className="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-bold rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
+                                                            >
+                                                                Load all keywords & unlock tracking
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
                                             }
-
-                                            // Regular table rows
-                                            return displayList.slice((allKwPage - 1) * itemsPerPage, allKwPage * itemsPerPage).map((kw, i) => {
-                                                const kwStringId = kw.keyword;
-                                                const intent = classifyIntent(kw.keyword)
-                                                const iColor = intentColor(intent)
-                                                const isAdded = addingToTrack[kwStringId] === 'done'
-
-                                                return (
-                                                    <tr key={`${kw.keyword}-${i}`} className="border-b border-[#F3F4F6] hover:bg-[#FAFBFC] group transition-colors">
-                                                        <td className={`px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
-                                                            <div className="flex flex-col"><span className="text-[13px] font-medium text-[#4B5563]">{kw.keyword}</span></div>
-                                                        </td>
-                                                        <td className={`px-3 ${cp ? 'py-2.5' : 'py-4'} text-[12px] font-medium`}>
-                                                            {kw.page ? (
-                                                                <a href={kw.page} target="_blank" rel="noopener noreferrer" className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline" title={kw.page} onClick={(e) => e.stopPropagation()}>Visit Page</a>
-                                                            ) : '-'}
-                                                        </td>
-                                                        <td className={`text-center px-3 ${cp ? 'py-2.5' : 'py-4'}`}>
-                                                            {kw.impressions < 10 ? (
-                                                                <span className="text-[11px] font-bold text-[#9CA3AF] cursor-help" title="Not Reliable: Fewer than 10 impressions">N/R</span>
-                                                            ) : (
-                                                                <span className="font-mono-data text-[13px] font-semibold text-[#111827]">#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span>
-                                                            )}
-                                                        </td>
-                                                        <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
-                                                        <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
-                                                        <td className={`text-right px-3 ${cp ? 'py-2.5' : 'py-4'} tabular-nums text-[13px] text-[#4B5563]`}>{kw.ctr ? (kw.ctr * 100).toFixed(2) + '%' : '-'}</td>
-                                                        <td className={`px-3 ${cp ? 'py-2.5' : 'py-4'}`}>
-                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider" style={{ backgroundColor: iColor.bg, color: iColor.text }}>{intent}</span>
-                                                        </td>
-                                                        <td className={`text-center px-3 ${cp ? 'py-2.5' : 'py-4'}`}>
-                                                            {isAdded ? (
-                                                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#059669] uppercase"><Check className="w-3.5 h-3.5" /> Added</span>
-                                                            ) : (
-                                                                !isTrial && (
-                                                                    <button onClick={(e) => { e.stopPropagation(); setBasketDropdown(basketDropdown === kwStringId ? null : kwStringId) }} className="p-1.5 hover:bg-[#F3F4F6] rounded-lg transition-colors text-[#9CA3AF] hover:text-[#4B5563] ml-auto">
-                                                                        <ShoppingBag className="w-4 h-4" />
-                                                                    </button>
-                                                                )
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            });
-                                        })()}
-                                        {isTrial && (
-                                            <tr>
-                                                <td colSpan="8" className="px-5 py-6 text-center bg-[#F9FAFB]/50">
-                                                    <div className="flex flex-col items-center justify-center gap-2">
-                                                        <p className="text-[13px] text-[#6B7280] font-medium">Currently viewing 25 restricted keywords from GSC.</p>
-                                                        <button
-                                                            onClick={() => navigate('/settings')}
-                                                            className="px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[12px] font-bold rounded-lg transition-all shadow-sm hover:shadow-md active:scale-95"
-                                                        >
-                                                            Load all keywords & unlock tracking
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                                        </tbody>
+                                    </table>
+                                </div>
                                 <Pagination
-                                    totalItems={isTrial ? Math.min(filteredGSC?.length || 0, 25) : filteredGSC?.length || 0}
+                                    totalItems={isTrial ? Math.min(filteredGSC?.length || 0, 50) : filteredGSC?.length || 0}
                                     currentPage={allKwPage}
                                     onPageChange={setAllKwPage}
                                     itemsPerPage={itemsPerPage}
@@ -1010,7 +1018,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Tracked Keywords' : 'Tracked Keywords'}</h2>
                                     {isTrial && <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold rounded-md border border-[#DBEAFE] uppercase tracking-wider">TRIAL MODE</span>}
                                     <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" /><input type="text" placeholder="Search tracked keywords..." value={trackingKwSearch} onChange={(e) => setTrackingKwSearch(e.target.value)} className="pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 w-[240px] bg-white" /></div>
-                                    <div className="flex items-center gap-1 px-2 py-1.5 bg-[#F9FAFB] rounded-lg"><Info className="w-3 h-3 text-[#9CA3AF]" /><span className="text-[11px] text-[#9CA3AF] font-normal">{isTrial ? 'Trial mode shows 25 pre-tracked keywords.' : 'Only tracked keywords appear in reports'}</span></div>
+                                    <div className="flex items-center gap-1 px-2 py-1.5 bg-[#F9FAFB] rounded-lg"><Info className="w-3 h-3 text-[#9CA3AF]" /><span className="text-[11px] text-[#9CA3AF] font-normal">{isTrial ? 'Trial mode shows 50 tracked keywords.' : 'Only tracked keywords appear in reports'}</span></div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {/* Matrix View Toggle */}
@@ -1032,67 +1040,85 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                     <button onClick={openAddModal} className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg"><Plus className="w-4 h-4" />Add</button>
                                 </div>
                             </div>
-                            <div className={`bg-white rounded-xl ${trackingViewMode === 'category' ? '' : 'border border-[#E5E7EB] overflow-x-auto'}`} style={{ boxShadow: trackingViewMode === 'category' ? 'none' : 'var(--shadow-sm)' }}>
+                            <div className={`bg-white rounded-xl ${trackingViewMode === 'category' ? '' : 'border border-[#E5E7EB] overflow-hidden'}`} style={{ boxShadow: trackingViewMode === 'category' ? 'none' : 'var(--shadow-sm)' }}>
                                 {trackingViewMode === 'standard' && (
-                                    <table className="w-full">
-                                        <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                                            <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
-                                            <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>View Page</th>
-                                            {renderSortHeader('Position', 'position', 'center')}
-                                            {renderSortHeader('Impressions', 'impressions', 'right')}
-                                            {renderSortHeader('Clicks', 'clicks', 'right')}
-                                            {renderSortHeader('CTR', 'ctr', 'right')}
-                                            <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Intent</th>
-                                            <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
-                                        </tr></thead>
-                                        <tbody>
-                                            {filteredTracking.slice((trackingKwPage - 1) * itemsPerPage, trackingKwPage * itemsPerPage).map((kw, i) => {
-                                                const intent = classifyIntent(kw.keyword)
-                                                const iColor = intentColor(intent)
-                                                return (
-                                                    <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#FAFBFC] group">
-                                                        <td className={`px-4 ${cp ? 'py-2' : 'py-3'}`}>
-                                                            <div className="flex flex-col"><span className="text-[13px] font-medium text-[#111827]">{kw.keyword}</span></div>
-                                                        </td>
-                                                        <td className={`px-3 ${cp ? 'py-2' : 'py-3'} text-[12px] font-medium`}>
-                                                            {kw.page && kw.page !== '-' ? (
-                                                                <a
-                                                                    href={kw.page}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline focus:outline-none block truncate w-[120px]"
-                                                                    title={kw.page}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    Visit Page
-                                                                </a>
-                                                            ) : '-'}
-                                                        </td>
-                                                        <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}>
-                                                            {kw.impressions < 10 ? (
-                                                                <span className="text-[11px] font-bold text-[#9CA3AF] cursor-help" title="Not Reliable: Fewer than 10 impressions">N/R</span>
-                                                            ) : (
-                                                                <span className="font-mono-data text-[13px] font-semibold text-[#4B5563]">#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span>
-                                                            )}
-                                                        </td>
-                                                        <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
-                                                        <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
-                                                        <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.ctr ? (kw.ctr * 100 > 1 ? kw.ctr.toFixed(2) + '%' : (kw.ctr * 100).toFixed(2) + '%') : '-'}</td>
-                                                        <td className={`px-3 ${cp ? 'py-2' : 'py-3'}`}>
-                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium`} style={{ backgroundColor: iColor.bg, color: iColor.text }}>
-                                                                {intent}
-                                                            </span>
-                                                        </td>
-                                                        <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}>
-                                                            <div className="relative group/action inline-block">
-                                                                <button onClick={() => handleUntrackKeyword(kw.keyword)} title="Delete keyword" className="p-1 hover:bg-[#FEE2E2] rounded text-[#9CA3AF] hover:text-[#DC2626] transition-colors"><Trash2 className="w-4 h-4" /></button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full table-fixed">
+                                            <colgroup>
+                                                <col className="w-[280px]" />
+                                                <col className="w-[120px]" />
+                                                <col className="w-[100px]" />
+                                                <col className="w-[110px]" />
+                                                <col className="w-[100px]" />
+                                                <col className="w-[100px]" />
+                                                <col className="w-[100px]" />
+                                                <col className="w-[120px]" />
+                                            </colgroup>
+                                            <thead><tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                                                <th className={`text-left px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Keyword</th>
+                                                <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>View Page</th>
+                                                {renderSortHeader('Position', 'position', 'center')}
+                                                {renderSortHeader('Impressions', 'impressions', 'right')}
+                                                {renderSortHeader('Clicks', 'clicks', 'right')}
+                                                {renderSortHeader('CTR', 'ctr', 'right')}
+                                                <th className={`text-left px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Intent</th>
+                                                <th className={`text-center px-3 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider w-[100px]`}>Action</th>
+                                            </tr></thead>
+                                            <tbody>
+                                                {filteredTracking.slice((trackingKwPage - 1) * itemsPerPage, trackingKwPage * itemsPerPage).map((kw, i) => {
+                                                    const intent = classifyIntent(kw.keyword)
+                                                    const iColor = intentColor(intent)
+                                                    return (
+                                                        <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#FAFBFC] group">
+                                                            <td className={`px-4 ${cp ? 'py-2' : 'py-3'}`}>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[13px] font-medium text-[#111827] truncate" title={kw.keyword}>
+                                                                        {kw.keyword}
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className={`px-3 ${cp ? 'py-2' : 'py-3'} text-[12px] font-medium`}>
+                                                                {kw.page && kw.page !== '-' ? (
+                                                                    <a
+                                                                        href={kw.page}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline focus:outline-none block truncate w-[120px]"
+                                                                        title={kw.page}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        Visit Page
+                                                                    </a>
+                                                                ) : '-'}
+                                                            </td>
+                                                            <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}>
+                                                                {kw.position === 'N/R' ? (
+                                                                    <span className="text-[11px] font-bold text-[#9CA3AF] cursor-help" title="Not Reliable: Fewer than 10 impressions">N/R</span>
+                                                                ) : (
+                                                                    <span className="font-mono-data text-[13px] font-semibold text-[#4B5563]">
+                                                                        #{typeof kw.position === 'number' ? kw.position.toFixed(1) : kw.position}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.impressions !== undefined && kw.impressions !== '-' ? kw.impressions.toLocaleString() : '-'}</td>
+                                                            <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.clicks !== undefined && kw.clicks !== '-' ? kw.clicks.toLocaleString() : '-'}</td>
+                                                            <td className={`text-right px-3 ${cp ? 'py-2' : 'py-3'} table-num font-normal text-[#4B5563]`}>{kw.ctr !== undefined && kw.ctr !== '-' ? (kw.ctr * 100).toFixed(2) + '%' : '-'}</td>
+                                                            <td className={`px-3 ${cp ? 'py-2' : 'py-3'}`}>
+                                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium`} style={{ backgroundColor: iColor.bg, color: iColor.text }}>
+                                                                    {intent}
+                                                                </span>
+                                                            </td>
+                                                            <td className={`text-center px-3 ${cp ? 'py-2' : 'py-3'}`}>
+                                                                <div className="relative group/action inline-block">
+                                                                    <button onClick={() => handleUntrackKeyword(kw.keyword)} title="Delete keyword" className="p-1 hover:bg-[#FEE2E2] rounded text-[#9CA3AF] hover:text-[#DC2626] transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
                                 {trackingViewMode === 'matrix' && (
                                     <table className="w-full min-w-max">
@@ -1205,398 +1231,406 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                 )}
                             </div>
                         </div>
-                    )}
-                </div>
-            )}
+                    )
+                    }
+                </div >
+            )
+            }
 
 
 
             {/* TAB 4: LOCATIONS VIEW */}
-            {kwTab === 'locations' && (
-                <div>
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Top 25 Keywords per Country' : 'Geographic Performance'}</h2>
-                            {isTrial && <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold rounded-md border border-[#DBEAFE] uppercase tracking-wider">TRIAL MODE</span>}
-                        </div>
-                    </div>
-                    {!isGscConnected ? (
-                        <div className="flex flex-col items-center justify-center py-24 bg-white border border-[#E5E7EB] rounded-2xl">
-                            <div className="w-20 h-20 rounded-2xl bg-[#EFF6FF] flex items-center justify-center mb-6"><Globe className="w-10 h-10 text-[#2563EB]" /></div>
-                            <h3 className="text-[20px] font-semibold text-[#111827] mb-2 tracking-[-0.01em]">Unlock Geographic Intelligence</h3>
-                            <p className="text-[13px] text-[#4B5563] max-w-sm text-center mb-6 font-normal">Connect Search Console to see exactly which countries are driving your keyword rankings.</p>
-                            <button onClick={handleConnectGSC} className="flex items-center gap-2 px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg shadow-sm">
-                                <Globe className="w-4 h-4" />Connect Search Console
-                            </button>
-                        </div>
-                    ) : isLoadingLoc ? (
-                        <div className="flex flex-col items-center justify-center py-24 bg-white border border-[#E5E7EB] rounded-2xl">
-                            <Loader2 className="w-8 h-8 text-[#2563EB] animate-spin mb-4" />
-                            <p className="text-[13px] font-medium text-[#111827]">Analyzing Global Data...</p>
-                            <p className="text-[12px] text-[#6B7280]">Fetching location metrics from Google Search Console</p>
-                        </div>
-                    ) : !selectedLocation ? (
-                        // --- LOCATIONS OVERVIEW GRID ---
-                        <div>
-                            <div className="flex items-center gap-3 p-4 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl mb-5">
-                                <Info className="w-4 h-4 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="text-[13px] text-[#4B5563] font-normal">Locations data is pulled directly from Search Console for the last 30 days.</p>
-                                    <p className="text-[11px] text-[#9CA3AF] mt-1 font-normal">Select a country card to see the specific keywords ranking in that region.</p>
-                                </div>
+            {
+                kwTab === 'locations' && (
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-[18px] font-bold text-[#111827] tracking-tight">{isTrial ? 'Trial View: Top 50 Keywords per Country' : 'Geographic Performance'}</h2>
+                                {isTrial && <span className="px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold rounded-md border border-[#DBEAFE] uppercase tracking-wider">TRIAL MODE</span>}
                             </div>
-
-                            <div className="flex items-center justify-between mb-5">
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#EFF6FF] border border-[#2563EB]/20 rounded-lg">
-                                    <MapPin className="w-3.5 h-3.5 text-[#2563EB]" />
-                                    <span className="text-[12px] font-semibold text-[#2563EB] tracking-wide">
-                                        Data from {meaningfulLocations.length} Countries
-                                    </span>
-                                </div>
-                                <button onClick={fetchLocations} className="px-3 py-1.5 text-[11px] font-medium text-[#4B5563] border border-[#E5E7EB] rounded-lg hover:border-[#D1D5DB] bg-white transition-colors">
-                                    Refresh Data
+                        </div>
+                        {!isGscConnected ? (
+                            <div className="flex flex-col items-center justify-center py-24 bg-white border border-[#E5E7EB] rounded-2xl">
+                                <div className="w-20 h-20 rounded-2xl bg-[#EFF6FF] flex items-center justify-center mb-6"><Globe className="w-10 h-10 text-[#2563EB]" /></div>
+                                <h3 className="text-[20px] font-semibold text-[#111827] mb-2 tracking-[-0.01em]">Unlock Geographic Intelligence</h3>
+                                <p className="text-[13px] text-[#4B5563] max-w-sm text-center mb-6 font-normal">Connect Search Console to see exactly which countries are driving your keyword rankings.</p>
+                                <button onClick={handleConnectGSC} className="flex items-center gap-2 px-5 py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg shadow-sm">
+                                    <Globe className="w-4 h-4" />Connect Search Console
                                 </button>
                             </div>
-
-                            {meaningfulLocations.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-24 bg-white border border-[#E5E7EB] rounded-2xl">
-                                    <p className="text-[14px] text-[#6B7280]">No location data found in Search Console for the last 30 days.</p>
+                        ) : isLoadingLoc ? (
+                            <div className="flex flex-col items-center justify-center py-24 bg-white border border-[#E5E7EB] rounded-2xl">
+                                <Loader2 className="w-8 h-8 text-[#2563EB] animate-spin mb-4" />
+                                <p className="text-[13px] font-medium text-[#111827]">Analyzing Global Data...</p>
+                                <p className="text-[12px] text-[#6B7280]">Fetching location metrics from Google Search Console</p>
+                            </div>
+                        ) : !selectedLocation ? (
+                            // --- LOCATIONS OVERVIEW GRID ---
+                            <div>
+                                <div className="flex items-center gap-3 p-4 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl mb-5">
+                                    <Info className="w-4 h-4 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <p className="text-[13px] text-[#4B5563] font-normal">Locations data is pulled directly from Search Console for the last 30 days.</p>
+                                        <p className="text-[11px] text-[#9CA3AF] mt-1 font-normal">Select a country card to see the specific keywords ranking in that region.</p>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="grid grid-cols-4 gap-4">
-                                    {meaningfulLocations.map((loc) => {
-                                        const countryInfo = gscCountryMap[loc.countryCode] || { name: (loc.countryCode || 'Unknown').toUpperCase(), emoji: '🌍' }
-                                        return (
-                                            <div
-                                                key={loc.countryCode}
-                                                onClick={() => setSelectedLocation(loc.countryCode)}
-                                                className="bg-white rounded-xl p-5 border border-[#E5E7EB] hover:border-[#2563EB] hover:ring-1 hover:ring-[#2563EB]/20 transition-all cursor-pointer group flex flex-col"
-                                                style={{ boxShadow: 'var(--shadow-sm)' }}
-                                            >
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[28px] leading-none filter drop-shadow-sm">{countryInfo.emoji}</span>
-                                                        <h4 className="text-[15px] font-semibold text-[#111827] leading-tight truncate max-w-[120px]">{countryInfo.name}</h4>
-                                                    </div>
-                                                </div>
 
-                                                <div className="grid grid-cols-2 gap-4 mb-5 flex-1">
-                                                    <div>
-                                                        <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Keywords</p>
-                                                        <p className="text-[20px] font-bold text-[#111827] tabular-nums tracking-tight">{(loc.keywordCount || 0).toLocaleString()}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Avg Pos.</p>
-                                                        <p className="text-[20px] font-bold text-[#2563EB] tabular-nums tracking-tight">{loc.avgPosition}</p>
-                                                    </div>
-                                                </div>
+                                <div className="flex items-center justify-between mb-5">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#EFF6FF] border border-[#2563EB]/20 rounded-lg">
+                                        <MapPin className="w-3.5 h-3.5 text-[#2563EB]" />
+                                        <span className="text-[12px] font-semibold text-[#2563EB] tracking-wide">
+                                            Data from {meaningfulLocations.length} Countries
+                                        </span>
+                                    </div>
+                                    <button onClick={fetchLocations} className="px-3 py-1.5 text-[11px] font-medium text-[#4B5563] border border-[#E5E7EB] rounded-lg hover:border-[#D1D5DB] bg-white transition-colors">
+                                        Refresh Data
+                                    </button>
+                                </div>
 
-                                                <div className="flex items-center justify-between border-t border-[#F3F4F6] pt-3 mt-auto">
-                                                    <div className="flex gap-4">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Clicks</span>
-                                                            <span className="text-[13px] font-medium text-[#4B5563]">{formatNumber(loc.clicks)}</span>
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Impressions</span>
-                                                            <span className="text-[13px] font-medium text-[#4B5563]">{formatNumber(loc.impressions)}</span>
+                                {meaningfulLocations.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-24 bg-white border border-[#E5E7EB] rounded-2xl">
+                                        <p className="text-[14px] text-[#6B7280]">No location data found in Search Console for the last 30 days.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-4 gap-4">
+                                        {meaningfulLocations.map((loc) => {
+                                            const countryInfo = gscCountryMap[loc.countryCode] || { name: (loc.countryCode || 'Unknown').toUpperCase(), emoji: '🌍' }
+                                            return (
+                                                <div
+                                                    key={loc.countryCode}
+                                                    onClick={() => setSelectedLocation(loc.countryCode)}
+                                                    className="bg-white rounded-xl p-5 border border-[#E5E7EB] hover:border-[#2563EB] hover:ring-1 hover:ring-[#2563EB]/20 transition-all cursor-pointer group flex flex-col"
+                                                    style={{ boxShadow: 'var(--shadow-sm)' }}
+                                                >
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[28px] leading-none filter drop-shadow-sm">{countryInfo.emoji}</span>
+                                                            <h4 className="text-[15px] font-semibold text-[#111827] leading-tight truncate max-w-[120px]">{countryInfo.name}</h4>
                                                         </div>
                                                     </div>
-                                                    <div className="w-6 h-6 rounded-full bg-[#F3F4F6] group-hover:bg-[#EFF6FF] flex items-center justify-center transition-colors">
-                                                        <ChevronRight className="w-3.5 h-3.5 text-[#9CA3AF] group-hover:text-[#2563EB]" />
+
+                                                    <div className="grid grid-cols-2 gap-4 mb-5 flex-1">
+                                                        <div>
+                                                            <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Keywords</p>
+                                                            <p className="text-[20px] font-bold text-[#111827] tabular-nums tracking-tight">{(loc.keywordCount || 0).toLocaleString()}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Avg Pos.</p>
+                                                            <p className="text-[20px] font-bold text-[#2563EB] tabular-nums tracking-tight">{loc.avgPosition}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center justify-between border-t border-[#F3F4F6] pt-3 mt-auto">
+                                                        <div className="flex gap-4">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Clicks</span>
+                                                                <span className="text-[13px] font-medium text-[#4B5563]">{formatNumber(loc.clicks)}</span>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[9px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Impressions</span>
+                                                                <span className="text-[13px] font-medium text-[#4B5563]">{formatNumber(loc.impressions)}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="w-6 h-6 rounded-full bg-[#F3F4F6] group-hover:bg-[#EFF6FF] flex items-center justify-center transition-colors">
+                                                            <ChevronRight className="w-3.5 h-3.5 text-[#9CA3AF] group-hover:text-[#2563EB]" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            // --- LOCATIONS DRILL-DOWN TABLE ---
+                            <div>
+                                {(() => {
+                                    const selectedData = locations.find(l => l.countryCode === selectedLocation)
+                                    if (!selectedData) return null
+                                    const cInfo = gscCountryMap[selectedData.countryCode] || { name: selectedData.countryCode.toUpperCase(), emoji: '🌍' }
+                                    return (
+                                        <>
+                                            <div className="flex items-center justify-between mb-5">
+                                                <div className="flex items-center gap-3">
+                                                    <button onClick={() => setSelectedLocation(null)} className="p-1.5 hover:bg-[#E5E7EB] rounded-lg transition-colors border border-transparent hover:border-[#D1D5DB]"><ArrowLeft className="w-5 h-5 text-[#4B5563]" /></button>
+                                                    <div className="flex items-center gap-2.5">
+                                                        <span className="text-[24px] filter drop-shadow-sm">{cInfo.emoji}</span>
+                                                        <h3 className="text-[20px] font-semibold text-[#111827] tracking-tight">{cInfo.name} Rankings</h3>
+                                                        <span className="ml-2 px-2.5 py-1 text-[11px] font-semibold bg-[#F3F4F6] text-[#4B5563] rounded-md border border-[#E5E7EB]">{selectedData.keywordCount} Keywords</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        // --- LOCATIONS DRILL-DOWN TABLE ---
-                        <div>
-                            {(() => {
-                                const selectedData = locations.find(l => l.countryCode === selectedLocation)
-                                if (!selectedData) return null
-                                const cInfo = gscCountryMap[selectedData.countryCode] || { name: selectedData.countryCode.toUpperCase(), emoji: '🌍' }
-                                return (
-                                    <>
-                                        <div className="flex items-center justify-between mb-5">
-                                            <div className="flex items-center gap-3">
-                                                <button onClick={() => setSelectedLocation(null)} className="p-1.5 hover:bg-[#E5E7EB] rounded-lg transition-colors border border-transparent hover:border-[#D1D5DB]"><ArrowLeft className="w-5 h-5 text-[#4B5563]" /></button>
-                                                <div className="flex items-center gap-2.5">
-                                                    <span className="text-[24px] filter drop-shadow-sm">{cInfo.emoji}</span>
-                                                    <h3 className="text-[20px] font-semibold text-[#111827] tracking-tight">{cInfo.name} Rankings</h3>
-                                                    <span className="ml-2 px-2.5 py-1 text-[11px] font-semibold bg-[#F3F4F6] text-[#4B5563] rounded-md border border-[#E5E7EB]">{selectedData.keywordCount} Keywords</span>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
-                                            <table className="w-full">
-                                                <thead>
-                                                    <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                                                        <th className={`text-left px-5 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>Keyword</th>
-                                                        <th className={`text-left px-5 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>Ranking Page</th>
-                                                        <th className={`text-center px-4 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider w-[120px]`}>Local Position</th>
-                                                        <th className={`text-right px-4 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>Impressions</th>
-                                                        <th className={`text-right px-4 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>Clicks</th>
-                                                        <th className={`text-right px-4 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>CTR</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {(() => {
-                                                        const list = isTrial ? (selectedData?.keywords || []).slice(0, 25) : (selectedData?.keywords || []);
-                                                        return (
-                                                            <>
-                                                                {list.slice((locationsKwPage - 1) * itemsPerPage, locationsKwPage * itemsPerPage).map((kw, i) => (
-                                                                    <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors">
-                                                                        <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium text-[#111827]`}>{kw.keyword}</td>
-                                                                        <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium`}>
-                                                                            {kw.page ? (
-                                                                                <a
-                                                                                    href={kw.page}
-                                                                                    target="_blank"
-                                                                                    rel="noopener noreferrer"
-                                                                                    className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline focus:outline-none"
-                                                                                    title={kw.page}
-                                                                                    onClick={(e) => e.stopPropagation()}
-                                                                                >
-                                                                                    Visit Page
-                                                                                </a>
-                                                                            ) : '-'}
-                                                                        </td>
-                                                                        <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
-                                                                            <span className="font-mono-data text-[13px] font-bold" style={{ color: (kw.position || 0) <= 3 ? '#059669' : '#111827' }}>#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span>
-                                                                        </td>
-                                                                        <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
-                                                                        <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
-                                                                        <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#9CA3AF]`}>{kw.ctr ? (kw.ctr * 100).toFixed(2) + '%' : '-'}</td>
-                                                                    </tr>
-                                                                ))}
-                                                                {isTrial && (selectedData?.keywords || []).length > 25 && (
-                                                                    <tr>
-                                                                        <td colSpan="6" className="px-5 py-4 text-center bg-[#F9FAFB]">
-                                                                            <p className="text-[12px] text-[#6B7280]">Trial limited to Top 25 keywords. <button onClick={() => navigate('/settings')} className="text-[#2563EB] font-semibold hover:underline">Upgrade to see all {(selectedData?.keywords || []).length} keywords</button></p>
-                                                                        </td>
-                                                                    </tr>
-                                                                )}
-                                                            </>
-                                                        )
-                                                    })()}
-                                                </tbody>
-                                            </table>
-                                            <Pagination
-                                                totalItems={isTrial ? Math.min(selectedData?.keywords?.length || 0, 25) : selectedData?.keywords?.length || 0}
-                                                currentPage={locationsKwPage}
-                                                onPageChange={setLocationsKwPage}
-                                                itemsPerPage={itemsPerPage}
-                                                setItemsPerPage={setItemsPerPage}
-                                            />
-                                        </div>
-                                    </>
-                                )
-                            })()}
-                        </div>
-                    )}
-                </div>
-            )}
+                                            <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
+                                                <table className="w-full">
+                                                    <thead>
+                                                        <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                                                            <th className={`text-left px-5 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>Keyword</th>
+                                                            <th className={`text-left px-5 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>Ranking Page</th>
+                                                            <th className={`text-center px-4 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider w-[120px]`}>Local Position</th>
+                                                            <th className={`text-right px-4 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>Impressions</th>
+                                                            <th className={`text-right px-4 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>Clicks</th>
+                                                            <th className={`text-right px-4 ${cp ? 'py-2' : 'py-3.5'} text-[11px] font-semibold text-[#6B7280] uppercase tracking-wider`}>CTR</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {(() => {
+                                                            const list = isTrial ? (selectedData?.keywords || []).slice(0, 50) : (selectedData?.keywords || []);
+                                                            return (
+                                                                <>
+                                                                    {list.slice((locationsKwPage - 1) * itemsPerPage, locationsKwPage * itemsPerPage).map((kw, i) => (
+                                                                        <tr key={i} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors">
+                                                                            <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium text-[#111827]`}>{kw.keyword}</td>
+                                                                            <td className={`px-5 ${cp ? 'py-2.5' : 'py-4'} text-[13px] font-medium`}>
+                                                                                {kw.page ? (
+                                                                                    <a
+                                                                                        href={kw.page}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="text-[#2563EB] hover:text-[#1D4ED8] hover:underline focus:outline-none"
+                                                                                        title={kw.page}
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                    >
+                                                                                        Visit Page
+                                                                                    </a>
+                                                                                ) : '-'}
+                                                                            </td>
+                                                                            <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-4'}`}>
+                                                                                <span className="font-mono-data text-[13px] font-bold" style={{ color: (kw.position || 0) <= 3 ? '#059669' : '#111827' }}>#{kw.position && kw.position.toFixed ? parseFloat(kw.position.toFixed(1)) : (kw.position || 0)}</span>
+                                                                            </td>
+                                                                            <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.impressions ? kw.impressions.toLocaleString() : '-'}</td>
+                                                                            <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#4B5563]`}>{kw.clicks ? kw.clicks.toLocaleString() : '-'}</td>
+                                                                            <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-4'} table-num font-medium text-[#9CA3AF]`}>{kw.ctr ? (kw.ctr * 100).toFixed(2) + '%' : '-'}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                    {isTrial && (selectedData?.keywords || []).length > 50 && (
+                                                                        <tr>
+                                                                            <td colSpan="6" className="px-5 py-4 text-center bg-[#F9FAFB]">
+                                                                                <p className="text-[12px] text-[#6B7280]">Trial limited to Top 50 keywords. <button onClick={() => navigate('/settings')} className="text-[#2563EB] font-semibold hover:underline">Upgrade to see all {(selectedData?.keywords || []).length} keywords</button></p>
+                                                                            </td>
+                                                                        </tr>
+                                                                    )}
+                                                                </>
+                                                            )
+                                                        })()}
+                                                    </tbody>
+                                                </table>
+                                                <Pagination
+                                                    totalItems={isTrial ? Math.min(selectedData?.keywords?.length || 0, 50) : selectedData?.keywords?.length || 0}
+                                                    currentPage={locationsKwPage}
+                                                    onPageChange={setLocationsKwPage}
+                                                    itemsPerPage={itemsPerPage}
+                                                    setItemsPerPage={setItemsPerPage}
+                                                />
+                                            </div>
+                                        </>
+                                    )
+                                })()}
+                            </div>
+                        )}
+                    </div>
+                )
+            }
 
 
 
             {/* ═══ ADD KEYWORDS MODAL ═══ */}
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" style={{ backdropFilter: 'blur(4px)' }}>
-                    <div className="bg-white rounded-2xl w-[620px] max-h-[85vh] overflow-hidden flex flex-col" style={{ boxShadow: 'var(--shadow-lg)' }}>
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] flex-shrink-0">
-                            <div className="flex items-center gap-2">
-                                <Plus className="w-5 h-5 text-[#2563EB]" />
-                                <h3 className="text-[16px] font-semibold text-[#111827]">Add Keywords to Track</h3>
+            {
+                showAddModal && (
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" style={{ backdropFilter: 'blur(4px)' }}>
+                        <div className="bg-white rounded-2xl w-[620px] max-h-[85vh] overflow-hidden flex flex-col" style={{ boxShadow: 'var(--shadow-lg)' }}>
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] flex-shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <Plus className="w-5 h-5 text-[#2563EB]" />
+                                    <h3 className="text-[16px] font-semibold text-[#111827]">Add Keywords to Track</h3>
+                                </div>
+                                <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-[#F9FAFB] rounded-lg"><X className="w-5 h-5 text-[#9CA3AF]" /></button>
                             </div>
-                            <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-[#F9FAFB] rounded-lg"><X className="w-5 h-5 text-[#9CA3AF]" /></button>
-                        </div>
 
-                        {/* Mode Toggle */}
-                        <div className="px-6 pt-5 pb-0 flex-shrink-0">
-                            <div className="flex items-center gap-1 bg-[#F3F4F6] rounded-lg p-1 w-fit">
-                                <button onClick={() => setAddMode('single')} className={`px-4 py-2 rounded-md text-[13px] font-medium transition-all ${addMode === 'single' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'}`}>
-                                    <span className="flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" />Single</span>
-                                </button>
-                                <button onClick={() => setAddMode('bulk')} className={`px-4 py-2 rounded-md text-[13px] font-medium transition-all ${addMode === 'bulk' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'}`}>
-                                    <span className="flex items-center gap-1.5"><Upload className="w-3.5 h-3.5" />Bulk Import</span>
-                                </button>
+                            {/* Mode Toggle */}
+                            <div className="px-6 pt-5 pb-0 flex-shrink-0">
+                                <div className="flex items-center gap-1 bg-[#F3F4F6] rounded-lg p-1 w-fit">
+                                    <button onClick={() => setAddMode('single')} className={`px-4 py-2 rounded-md text-[13px] font-medium transition-all ${addMode === 'single' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'}`}>
+                                        <span className="flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" />Single</span>
+                                    </button>
+                                    <button onClick={() => setAddMode('bulk')} className={`px-4 py-2 rounded-md text-[13px] font-medium transition-all ${addMode === 'bulk' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'}`}>
+                                        <span className="flex items-center gap-1.5"><Upload className="w-3.5 h-3.5" />Bulk Import</span>
+                                    </button>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Body */}
-                        <div className="px-6 py-5 overflow-y-auto flex-1">
-                            {addMode === 'single' ? (
-                                <div className="space-y-4">
-                                    {singleEntries.map((entry, idx) => (
-                                        <div key={idx} className={`${singleEntries.length > 1 ? 'p-4 bg-[#F9FAFB] rounded-xl border border-[#E5E7EB]' : ''}`}>
-                                            {singleEntries.length > 1 && (
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <span className="text-[11px] font-medium text-[#9CA3AF] uppercase">Keyword {idx + 1}</span>
-                                                    <button onClick={() => removeSingleEntry(idx)} className="p-0.5 hover:bg-white rounded"><X className="w-3.5 h-3.5 text-[#9CA3AF]" /></button>
-                                                </div>
-                                            )}
-                                            <div className="space-y-3">
-                                                <div>
-                                                    <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Primary Keyword <span className="text-[#DC2626]">*</span></label>
-                                                    <input
-                                                        type="text" placeholder="e.g. led tv repair near me"
-                                                        value={entry.keyword}
-                                                        onChange={(e) => updateSingleEntry(idx, 'keyword', e.target.value)}
-                                                        className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white"
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Category</label>
-                                                        <select
-                                                            value={entry.category}
-                                                            onChange={(e) => updateSingleEntry(idx, 'category', e.target.value)}
-                                                            className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal text-[#4B5563] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white appearance-none cursor-pointer"
-                                                        >
-                                                            <option value="">Select category...</option>
-                                                            {allCategoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                                                        </select>
+                            {/* Body */}
+                            <div className="px-6 py-5 overflow-y-auto flex-1">
+                                {addMode === 'single' ? (
+                                    <div className="space-y-4">
+                                        {singleEntries.map((entry, idx) => (
+                                            <div key={idx} className={`${singleEntries.length > 1 ? 'p-4 bg-[#F9FAFB] rounded-xl border border-[#E5E7EB]' : ''}`}>
+                                                {singleEntries.length > 1 && (
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <span className="text-[11px] font-medium text-[#9CA3AF] uppercase">Keyword {idx + 1}</span>
+                                                        <button onClick={() => removeSingleEntry(idx)} className="p-0.5 hover:bg-white rounded"><X className="w-3.5 h-3.5 text-[#9CA3AF]" /></button>
                                                     </div>
+                                                )}
+                                                <div className="space-y-3">
                                                     <div>
-                                                        <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Expected URL <span className="text-[11px] text-[#9CA3AF] font-normal">(optional)</span></label>
+                                                        <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Primary Keyword <span className="text-[#DC2626]">*</span></label>
                                                         <input
-                                                            type="text" placeholder="https://example.com/page"
-                                                            value={entry.expectedUrl}
-                                                            onChange={(e) => updateSingleEntry(idx, 'expectedUrl', e.target.value)}
+                                                            type="text" placeholder="e.g. led tv repair near me"
+                                                            value={entry.keyword}
+                                                            onChange={(e) => updateSingleEntry(idx, 'keyword', e.target.value)}
                                                             className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white"
                                                         />
                                                     </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Category</label>
+                                                            <select
+                                                                value={entry.category}
+                                                                onChange={(e) => updateSingleEntry(idx, 'category', e.target.value)}
+                                                                className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal text-[#4B5563] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white appearance-none cursor-pointer"
+                                                            >
+                                                                <option value="">Select category...</option>
+                                                                {allCategoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Expected URL <span className="text-[11px] text-[#9CA3AF] font-normal">(optional)</span></label>
+                                                            <input
+                                                                type="text" placeholder="https://example.com/page"
+                                                                value={entry.expectedUrl}
+                                                                onChange={(e) => updateSingleEntry(idx, 'expectedUrl', e.target.value)}
+                                                                className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
+                                        ))}
+                                        <button onClick={addSingleEntry} className="w-full flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-[#E5E7EB] rounded-xl text-[13px] font-medium text-[#6B7280] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors">
+                                            <Plus className="w-3.5 h-3.5" />Add Another Keyword
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Default Category for Bulk Import</label>
+                                            <select
+                                                value={bulkCategory}
+                                                onChange={(e) => setBulkCategory(e.target.value)}
+                                                className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal text-[#4B5563] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white appearance-none cursor-pointer"
+                                            >
+                                                <option value="">Select category...</option>
+                                                {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
                                         </div>
-                                    ))}
-                                    <button onClick={addSingleEntry} className="w-full flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-[#E5E7EB] rounded-xl text-[13px] font-medium text-[#6B7280] hover:border-[#2563EB] hover:text-[#2563EB] transition-colors">
-                                        <Plus className="w-3.5 h-3.5" />Add Another Keyword
+                                        <div>
+                                            <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Keywords <span className="text-[#DC2626]">*</span></label>
+                                            <textarea
+                                                value={bulkText}
+                                                onChange={(e) => setBulkText(e.target.value)}
+                                                placeholder={`Enter one keyword per line:\n\nled tv repair near me\nsmart tv service center\nlcd panel replacement cost\n\nOr use CSV format:\nkeyword, category, expected_url`}
+                                                className="w-full px-3 py-3 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white resize-none font-mono"
+                                                rows={10}
+                                            />
+                                        </div>
+                                        <div className="flex items-start gap-2 px-3 py-2.5 bg-[#F9FAFB] rounded-lg">
+                                            <Info className="w-3.5 h-3.5 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
+                                            <div className="text-[11px] text-[#6B7280] font-normal leading-relaxed">
+                                                <p><strong>Simple:</strong> One keyword per line</p>
+                                                <p><strong>CSV:</strong> keyword, category, expected_url</p>
+                                                <p className="text-[#9CA3AF] mt-1">{bulkText.split('\n').filter(l => l.trim()).length} keyword{bulkText.split('\n').filter(l => l.trim()).length !== 1 ? 's' : ''} detected</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Error / Success messages */}
+                                {saveError && <div className="mt-4 px-3 py-2 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[12px] text-[#DC2626] font-medium">{saveError}</div>}
+                                {saveSuccess && <div className="mt-4 px-3 py-2 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg text-[12px] text-[#059669] font-medium flex items-center gap-1.5"><Check className="w-3.5 h-3.5" />{saveSuccess}</div>}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 border-t border-[#E5E7EB] flex items-center justify-between flex-shrink-0 bg-[#F9FAFB]">
+                                <span className="text-[11px] text-[#9CA3AF] font-normal">
+                                    {addMode === 'single'
+                                        ? `${singleEntries.filter(e => e.keyword.trim()).length} keyword${singleEntries.filter(e => e.keyword.trim()).length !== 1 ? 's' : ''} ready`
+                                        : `${bulkText.split('\n').filter(l => l.trim()).length} keywords detected`
+                                    }
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setShowAddModal(false)} className="px-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#4B5563] hover:bg-white">Cancel</button>
+                                    <button onClick={handleSaveKeywords} disabled={isSaving} className="flex items-center gap-1.5 px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                                        {isSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving...</> : <><Plus className="w-3.5 h-3.5" />Add to Tracking</>}
                                     </button>
                                 </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Default Category for Bulk Import</label>
-                                        <select
-                                            value={bulkCategory}
-                                            onChange={(e) => setBulkCategory(e.target.value)}
-                                            className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal text-[#4B5563] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white appearance-none cursor-pointer"
-                                        >
-                                            <option value="">Select category...</option>
-                                            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Keywords <span className="text-[#DC2626]">*</span></label>
-                                        <textarea
-                                            value={bulkText}
-                                            onChange={(e) => setBulkText(e.target.value)}
-                                            placeholder={`Enter one keyword per line:\n\nled tv repair near me\nsmart tv service center\nlcd panel replacement cost\n\nOr use CSV format:\nkeyword, category, expected_url`}
-                                            className="w-full px-3 py-3 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white resize-none font-mono"
-                                            rows={10}
-                                        />
-                                    </div>
-                                    <div className="flex items-start gap-2 px-3 py-2.5 bg-[#F9FAFB] rounded-lg">
-                                        <Info className="w-3.5 h-3.5 text-[#9CA3AF] mt-0.5 flex-shrink-0" />
-                                        <div className="text-[11px] text-[#6B7280] font-normal leading-relaxed">
-                                            <p><strong>Simple:</strong> One keyword per line</p>
-                                            <p><strong>CSV:</strong> keyword, category, expected_url</p>
-                                            <p className="text-[#9CA3AF] mt-1">{bulkText.split('\n').filter(l => l.trim()).length} keyword{bulkText.split('\n').filter(l => l.trim()).length !== 1 ? 's' : ''} detected</p>
-                                        </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ═══ CREATE CATEGORY MODAL ═══ */}
+            {
+                showCategoryModal && (
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" style={{ backdropFilter: 'blur(4px)' }}>
+                        <div className="bg-white rounded-2xl w-[460px] overflow-hidden" style={{ boxShadow: 'var(--shadow-lg)' }}>
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
+                                <div className="flex items-center gap-2">
+                                    <Tag className="w-5 h-5 text-[#D97706]" />
+                                    <h3 className="text-[16px] font-semibold text-[#111827]">Create Category</h3>
+                                </div>
+                                <button onClick={() => setShowCategoryModal(false)} className="p-1 hover:bg-[#F9FAFB] rounded-lg"><X className="w-5 h-5 text-[#9CA3AF]" /></button>
+                            </div>
+
+                            {/* Body */}
+                            <div className="px-6 py-5 space-y-4">
+                                <div>
+                                    <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Category Name <span className="text-[#DC2626]">*</span></label>
+                                    <input
+                                        type="text" placeholder="e.g. Blog Keywords"
+                                        value={catName}
+                                        onChange={(e) => { setCatName(e.target.value); setCatSaveError('') }}
+                                        className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Description <span className="text-[11px] text-[#9CA3AF] font-normal">(optional)</span></label>
+                                    <input
+                                        type="text" placeholder="e.g. Tracks keywords for blog articles"
+                                        value={catDescription}
+                                        onChange={(e) => setCatDescription(e.target.value)}
+                                        className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[12px] font-medium text-[#374151] mb-2">Color</label>
+                                    <div className="flex items-center gap-2">
+                                        {catColors.map(c => (
+                                            <button key={c.color} onClick={() => setCatColor(c.color)}
+                                                className={`w-7 h-7 rounded-full transition-all ${catColor === c.color ? 'ring-2 ring-offset-2 ring-[#2563EB] scale-110' : 'hover:scale-110'}`}
+                                                style={{ backgroundColor: c.color }} title={c.label}
+                                            />
+                                        ))}
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Error / Success messages */}
-                            {saveError && <div className="mt-4 px-3 py-2 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[12px] text-[#DC2626] font-medium">{saveError}</div>}
-                            {saveSuccess && <div className="mt-4 px-3 py-2 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg text-[12px] text-[#059669] font-medium flex items-center gap-1.5"><Check className="w-3.5 h-3.5" />{saveSuccess}</div>}
-                        </div>
+                                {catSaveError && <div className="px-3 py-2 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[12px] text-[#DC2626] font-medium">{catSaveError}</div>}
+                            </div>
 
-                        {/* Footer */}
-                        <div className="px-6 py-4 border-t border-[#E5E7EB] flex items-center justify-between flex-shrink-0 bg-[#F9FAFB]">
-                            <span className="text-[11px] text-[#9CA3AF] font-normal">
-                                {addMode === 'single'
-                                    ? `${singleEntries.filter(e => e.keyword.trim()).length} keyword${singleEntries.filter(e => e.keyword.trim()).length !== 1 ? 's' : ''} ready`
-                                    : `${bulkText.split('\n').filter(l => l.trim()).length} keywords detected`
-                                }
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#4B5563] hover:bg-white">Cancel</button>
-                                <button onClick={handleSaveKeywords} disabled={isSaving} className="flex items-center gap-1.5 px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
-                                    {isSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving...</> : <><Plus className="w-3.5 h-3.5" />Add to Tracking</>}
+                            {/* Footer */}
+                            <div className="px-6 py-4 border-t border-[#E5E7EB] flex items-center justify-end gap-2 bg-[#F9FAFB]">
+                                <button onClick={() => setShowCategoryModal(false)} className="px-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#4B5563] hover:bg-white">Cancel</button>
+                                <button onClick={handleCreateCategory} className="flex items-center gap-1.5 px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg">
+                                    <Plus className="w-3.5 h-3.5" />Create Category
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* ═══ CREATE CATEGORY MODAL ═══ */}
-            {showCategoryModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" style={{ backdropFilter: 'blur(4px)' }}>
-                    <div className="bg-white rounded-2xl w-[460px] overflow-hidden" style={{ boxShadow: 'var(--shadow-lg)' }}>
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
-                            <div className="flex items-center gap-2">
-                                <Tag className="w-5 h-5 text-[#D97706]" />
-                                <h3 className="text-[16px] font-semibold text-[#111827]">Create Category</h3>
-                            </div>
-                            <button onClick={() => setShowCategoryModal(false)} className="p-1 hover:bg-[#F9FAFB] rounded-lg"><X className="w-5 h-5 text-[#9CA3AF]" /></button>
-                        </div>
-
-                        {/* Body */}
-                        <div className="px-6 py-5 space-y-4">
-                            <div>
-                                <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Category Name <span className="text-[#DC2626]">*</span></label>
-                                <input
-                                    type="text" placeholder="e.g. Blog Keywords"
-                                    value={catName}
-                                    onChange={(e) => { setCatName(e.target.value); setCatSaveError('') }}
-                                    className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white"
-                                    autoFocus
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[12px] font-medium text-[#374151] mb-1.5">Description <span className="text-[11px] text-[#9CA3AF] font-normal">(optional)</span></label>
-                                <input
-                                    type="text" placeholder="e.g. Tracks keywords for blog articles"
-                                    value={catDescription}
-                                    onChange={(e) => setCatDescription(e.target.value)}
-                                    className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 bg-white"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[12px] font-medium text-[#374151] mb-2">Color</label>
-                                <div className="flex items-center gap-2">
-                                    {catColors.map(c => (
-                                        <button key={c.color} onClick={() => setCatColor(c.color)}
-                                            className={`w-7 h-7 rounded-full transition-all ${catColor === c.color ? 'ring-2 ring-offset-2 ring-[#2563EB] scale-110' : 'hover:scale-110'}`}
-                                            style={{ backgroundColor: c.color }} title={c.label}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-
-                            {catSaveError && <div className="px-3 py-2 bg-[#FEF2F2] border border-[#FECACA] rounded-lg text-[12px] text-[#DC2626] font-medium">{catSaveError}</div>}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="px-6 py-4 border-t border-[#E5E7EB] flex items-center justify-end gap-2 bg-[#F9FAFB]">
-                            <button onClick={() => setShowCategoryModal(false)} className="px-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#4B5563] hover:bg-white">Cancel</button>
-                            <button onClick={handleCreateCategory} className="flex items-center gap-1.5 px-5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[13px] font-medium rounded-lg">
-                                <Plus className="w-3.5 h-3.5" />Create Category
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     )
 }

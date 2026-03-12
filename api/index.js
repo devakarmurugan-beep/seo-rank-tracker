@@ -30,6 +30,12 @@ const getSupabaseAdmin = () => {
     return _supabaseAdmin
 }
 
+// Admin Emails (Synced with frontend src/lib/permissions.js)
+const ADMIN_EMAILS = [
+    'devakarmurugan@gmail.com',
+    'sylvester.jayan@hilabs.com'
+];
+
 app.get('/api/health', (req, res) => {
     const missing = []
     const check = {
@@ -50,6 +56,60 @@ app.get('/api/health', (req, res) => {
             supabase_url: mask(process.env.VITE_SUPABASE_URL),
         }
     })
+})
+
+// === Admin Management Endpoints ===
+app.post('/api/admin/users', async (req, res) => {
+    const { adminId } = req.body
+    if (!adminId) return res.status(400).json({ error: 'Missing adminId' })
+
+    try {
+        const { data: adminUser, error: adminErr } = await getSupabaseAdmin().auth.admin.getUserById(adminId)
+        if (adminErr || !adminUser || !ADMIN_EMAILS.includes(adminUser.user.email.toLowerCase())) {
+            return res.status(403).json({ error: 'Unauthorized: Admin access only' })
+        }
+
+        const { data: { users }, error: usersErr } = await getSupabaseAdmin().auth.admin.listUsers()
+        if (usersErr) throw usersErr
+
+        // Format user data for the dashboard
+        const formattedUsers = users.map(u => ({
+            id: u.id,
+            email: u.email,
+            created_at: u.created_at,
+            plan: u.user_metadata?.plan || 'free_trial',
+            is_admin: ADMIN_EMAILS.includes(u.email.toLowerCase())
+        }))
+
+        res.json({ success: true, users: formattedUsers })
+    } catch (err) {
+        console.error('Admin Fetch Error:', err.message)
+        res.status(500).json({ error: 'Failed to fetch users', details: err.message })
+    }
+})
+
+app.post('/api/admin/update-user', async (req, res) => {
+    const { adminId, targetUserId, updates } = req.body
+    if (!adminId || !targetUserId || !updates) return res.status(400).json({ error: 'Missing payload' })
+
+    try {
+        const { data: adminUser, error: adminErr } = await getSupabaseAdmin().auth.admin.getUserById(adminId)
+        if (adminErr || !adminUser || !ADMIN_EMAILS.includes(adminUser.user.email.toLowerCase())) {
+            return res.status(403).json({ error: 'Unauthorized: Admin access only' })
+        }
+
+        // Apply metadata updates (plan update)
+        const { data, error } = await getSupabaseAdmin().auth.admin.updateUserById(
+            targetUserId,
+            { user_metadata: updates }
+        )
+
+        if (error) throw error
+        res.json({ success: true, user: data.user })
+    } catch (err) {
+        console.error('Admin Update Error:', err.message)
+        res.status(500).json({ error: 'Failed to update user', details: err.message })
+    }
 })
 
 // === Core Data Fetcher Endpoints ===
@@ -157,7 +217,7 @@ app.post('/api/user/add-site', async (req, res) => {
 })
 
 // 3. Sync Site Analytics Data (Keywords, Pages, History)
-const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch = 480) => {
+const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch = 90) => {
     // 1. Get Site & Connection Details
     const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
     const { data: connection } = await getSupabaseAdmin().from('user_connections').select('refresh_token').eq('user_id', userId).eq('provider', 'google').single()
@@ -166,10 +226,11 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
         throw new Error('Site or Google connection not found')
     }
 
-    // 2. Fetch GSC Data (History + Pages)
+    // GSC data has a consistent 3-day delay. We use today-3 as the end date
+    // to match exactly what Search Console shows (e.g. today March 12 → data up to March 9).
     const today = new Date()
-    const endDateStr = new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
-    const startDateStr = new Date(today.getTime() - (daysToFetch * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+    const endDateStr   = new Date(today.getTime() - (3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+    const startDateStr = new Date(today.getTime() - ((daysToFetch + 3) * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
 
     const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
 
@@ -179,8 +240,66 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
     let chunkEnd = new Date(endDateStr)
     const totalStart = new Date(startDateStr)
 
-    // Normalize siteUrl for GSC API
-    let siteUrl = site.property_url
+    // 2.5 NEW: High-Reliability Discovery Fetch
+    console.log(`[Sync] Performing discovery fetch for ${site.property_url}...`)
+    let discoveryRows = []
+    let winningUrl = site.property_url
+
+    const runDiscovery = async (pUrl) => {
+        const res = await gscClient.searchanalytics.query({
+            siteUrl: pUrl,
+            requestBody: {
+                startDate: startDateStr,
+                endDate: endDateStr,
+                dimensions: ['query', 'page'],
+                rowLimit: 25000,
+                aggregationType: 'auto'
+            }
+        })
+        return (res.data.rows || []).map(r => ({
+            keyword: r.keys[0],
+            page_url: r.keys[1],
+            clicks: r.clicks,
+            impressions: r.impressions,
+            ctr: r.ctr,
+            position: r.position
+        }))
+    }
+
+    try {
+        discoveryRows = await runDiscovery(site.property_url)
+
+        // Fallback 1: Trailing Slash
+        if (discoveryRows.length === 0 && !site.property_url.startsWith('sc-domain:')) {
+            const fUrl = site.property_url.endsWith('/') ? site.property_url.slice(0, -1) : `${site.property_url}/`
+            console.log(`[Sync] Discovery empty for ${site.property_url}, trying fallback: ${fUrl}`)
+            const fRows = await runDiscovery(fUrl)
+            if (fRows.length > discoveryRows.length) {
+                discoveryRows = fRows
+                winningUrl = fUrl
+            }
+        }
+
+        // Fallback 2: Domain Property (Aggressive)
+        if (discoveryRows.length < 10 && !site.property_url.startsWith('sc-domain:')) {
+            const { data: { siteEntry } } = await gscClient.sites.list()
+            const domainOnly = site.property_url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[\/]+$/, '')
+            const domainPropertySpec = `sc-domain:${domainOnly}`
+            if ((siteEntry || []).find(s => s.siteUrl === domainPropertySpec)) {
+                console.log(`[Sync] Volume low on prefix property, attempting Domain Property fetch: ${domainPropertySpec}`)
+                const dRows = await runDiscovery(domainPropertySpec)
+                if (dRows.length > discoveryRows.length) {
+                    discoveryRows = dRows
+                    winningUrl = domainPropertySpec
+                }
+            }
+        }
+    } catch (discErr) {
+        console.error('[Sync] Discovery failed:', discErr.message)
+    }
+
+    // Capture the 'winningUrl' as the main siteUrl for the chunked historical fetch
+    let siteUrl = winningUrl
     if (siteUrl.startsWith('sc-domain:') && siteUrl.endsWith('/')) {
         siteUrl = siteUrl.slice(0, -1)
     }
@@ -194,27 +313,11 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
 
         try {
             let { history, pages } = await fetchGSCRankingData(gscClient, siteUrl, s, e)
-
-            // Fallback for Prefix Properties: Toggle trailing slash if empty
-            if (history.length === 0 && !siteUrl.startsWith('sc-domain:')) {
-                const fallbackUrl = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : `${siteUrl}/`
-                console.log(`[Sync] No data for ${siteUrl}, trying fallback: ${fallbackUrl}`)
-                const fallbackData = await fetchGSCRankingData(gscClient, fallbackUrl, s, e)
-                if (fallbackData.history.length > 0) {
-                    history = fallbackData.history
-                    pages = fallbackData.pages
-                    siteUrl = fallbackUrl // Update siteUrl for subsequent chunks
-                }
-            }
-
             allHistory.push(...history)
-            // Extract pages from both sources for maximum coverage
             pages.forEach(p => allPages.add(p))
             history.forEach(h => { if (h.page_url) allPages.add(h.page_url) })
-
         } catch (fetchErr) {
             console.error(`[Sync] Chunk failed for ${s} to ${e}:`, fetchErr.message)
-            // Continue to next chunk instead of failing entire sync
         }
 
         chunkEnd = new Date(chunkStart.getTime() - (1 * 24 * 60 * 60 * 1000))
@@ -238,15 +341,47 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
     const uniqueBrandVars = [...new Set(smartBrandVars)].filter(v => v.length >= 3)
 
     const keywordMap = {}
-    allHistory.forEach(row => {
-        if (!keywordMap[row.keyword]) {
-            keywordMap[row.keyword] = {
-                site_id: siteId,
-                keyword: row.keyword,
-                intent: classifyKeywordIntent(row.keyword, uniqueBrandVars)
+    const keywordCacheMap = {}
+
+    // Process discovery rows first for discovery/cache
+    const processRows = (rows) => {
+        rows.forEach(row => {
+            const kwRaw = row.keyword
+            const kwLower = kwRaw.trim().toLowerCase()
+
+            // 1. Keyword Registry Data
+            if (!keywordMap[kwLower]) {
+                keywordMap[kwLower] = {
+                    site_id: siteId,
+                    keyword: kwLower,
+                    intent: classifyKeywordIntent(kwRaw, uniqueBrandVars)
+                }
             }
-        }
-    })
+
+            // 2. Cache Aggregation Data
+            if (!keywordCacheMap[kwLower]) {
+                keywordCacheMap[kwLower] = {
+                    site_id: siteId,
+                    user_id: userId,
+                    keyword: kwLower,
+                    total_impressions: 0,
+                    total_clicks: 0,
+                    pos_sum: 0,
+                    pos_count: 0
+                }
+            }
+            const cache = keywordCacheMap[kwLower]
+            const imp = (row.impressions || 0)
+            cache.total_impressions += imp
+            cache.total_clicks += (row.clicks || 0)
+            if (typeof row.position === 'number') {
+                cache.pos_sum += (row.position * (imp || 1))
+                cache.pos_count += (imp || 1)
+            }
+        })
+    }
+
+    processRows(discoveryRows.length > 0 ? discoveryRows : allHistory)
 
     const keywordList = Object.values(keywordMap)
     if (keywordList.length > 0) {
@@ -265,11 +400,38 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
     const kwLookup = {}
     savedKeywords.forEach(k => kwLookup[k.keyword] = k.id)
 
-    // 4. Process History Snapshots
+    // 4. Update Keyword Cache (Aggregated Snapshot)
+    const cachePayload = Object.values(keywordCacheMap).map(c => ({
+        site_id: c.site_id,
+        user_id: c.user_id,
+        keyword: c.keyword,
+        total_impressions: c.total_impressions,
+        total_clicks: c.total_clicks,
+        avg_pos: c.pos_count > 0 ? (c.pos_sum / c.pos_count) : null,
+        last_synced: new Date().toISOString()
+    }))
+
+    if (cachePayload.length > 0) {
+        const CHUNK_SIZE = 500
+        for (let i = 0; i < cachePayload.length; i += CHUNK_SIZE) {
+            const chunk = cachePayload.slice(i, i + CHUNK_SIZE)
+            await getSupabaseAdmin().from('keyword_cache').upsert(chunk, { onConflict: 'site_id, keyword' })
+        }
+    }
+
+    // 5. Process History Snapshots (ONLY for already tracked keywords to save 95% space)
+    const { data: alreadyTracked } = await getSupabaseAdmin()
+        .from('keywords')
+        .select('id')
+        .eq('site_id', siteId)
+        .eq('is_tracked', true)
+
+    const trackedIdsSet = new Set((alreadyTracked || []).map(k => k.id))
+
     const historyMap = {}
     allHistory.forEach(row => {
-        const kwId = kwLookup[row.keyword]
-        if (!kwId) return
+        const kwId = kwLookup[row.keyword.toLowerCase()]
+        if (!kwId || !trackedIdsSet.has(kwId)) return
         const key = `${kwId}|${row.date}`
         if (!historyMap[key]) {
             historyMap[key] = {
@@ -283,12 +445,21 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
             }
         } else {
             const existing = historyMap[key]
-            existing.impressions += row.impressions
+            const oldImp = existing.impressions
+            const newImp = row.impressions
+            existing.impressions += newImp
             existing.clicks += row.clicks
-            if (row.position < existing.position) {
-                existing.position = row.position
+
+            // Weighted average for position to match GSC Average Position logic
+            if (existing.impressions > 0) {
+                existing.position = ((existing.position * oldImp) + (row.position * newImp)) / existing.impressions
+            }
+
+            // Primary page is the one with highest volume
+            if (newImp > oldImp) {
                 existing.page_url = row.page_url
             }
+
             existing.ctr = existing.impressions > 0 ? existing.clicks / existing.impressions : 0
         }
     })
@@ -356,8 +527,8 @@ app.get('/api/cron/daily-sync', async (req, res) => {
         const results = []
         for (const site of sites) {
             try {
-                // For daily sync, only fetch 7 days to keep it efficient
-                const metrics = await performSiteSync(site.user_id, site.id, [site.site_name], 7)
+                // Daily sync: fetch only the last 4 days (3-day GSC delay + 1 extra buffer)
+                const metrics = await performSiteSync(site.user_id, site.id, [site.site_name], 4)
                 results.push({ siteId: site.id, status: 'success', keywords: metrics.totalKeywords })
             } catch (err) {
                 console.error(`[Cron] Failed to sync site ${site.id}:`, err.message)
@@ -404,41 +575,15 @@ app.post('/api/keywords/track', async (req, res) => {
 
         if (error) throw error
 
-        // 2. Fetch history for these specific keywords immediately so the user doesn't wait
-        const { data: site } = await getSupabaseAdmin().from('sites').select('*').eq('id', siteId).single()
-        const { data: connection } = await getSupabaseAdmin().from('user_connections').select('*').eq('user_id', site.user_id).eq('provider', 'google').single()
+        // 2. NEW PERFORMANCE ENGINE: Do not call GSC API.
+        // Data is already cached in Supabase from the bulk sync.
+        // We just return success and the frontend will fetch from cache/history table.
+        // The daily sync cron will handle populating history for these new tracked keywords.
 
-        if (connection?.refresh_token && site?.property_url) {
-            const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
-            const today = new Date()
-            const endDate = new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
-            const startDate = new Date(today.getTime() - (480 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
-
-            for (const kw of keywordsWithIds) {
-                try {
-                    const { history } = await fetchGSCRankingData(gscClient, site.property_url, startDate, endDate, kw.keyword)
-                    if (history && history.length > 0) {
-                        const historyPayload = history.map(h => ({
-                            keyword_id: kw.id,
-                            date: h.date,
-                            position: h.position,
-                            impressions: h.impressions,
-                            clicks: h.clicks,
-                            ctr: h.ctr,
-                            page_url: h.page_url
-                        }))
-                        await getSupabaseAdmin().from('keyword_history').upsert(historyPayload, { onConflict: 'keyword_id, date' })
-                    }
-                } catch (e) {
-                    console.error(`Error fetching history for specific keyword ${kw.keyword}:`, e.message)
-                }
-            }
-        }
-
-        res.json({ success: true, count: records.length, keywords: keywordsWithIds })
+        res.json({ success: true, count: keywordsWithIds.length })
     } catch (err) {
-        console.error('Error adding tracked keywords:', err.message)
-        res.status(500).json({ error: 'Failed to add keywords', details: err.message })
+        console.error('Error tracking keywords:', err.message)
+        res.status(500).json({ error: 'Failed to track keywords' })
     }
 })
 
@@ -460,14 +605,30 @@ app.post('/api/keywords/sync-specific', async (req, res) => {
 
         const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
         const today = new Date()
-        const endDate = new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+        const endDate = today.toISOString().split('T')[0]
         const startDate = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+
+        // Site URL normalize
+        let siteUrl = site.property_url
+        if (siteUrl.startsWith('sc-domain:') && siteUrl.endsWith('/')) {
+            siteUrl = siteUrl.slice(0, -1)
+        }
 
         const syncResults = []
         for (const kw of kws) {
             try {
-                // Use strict 'equals' operator for each keyword
-                const { history } = await fetchGSCRankingData(gscClient, site.property_url, startDate, endDate, kw.keyword)
+                let { history } = await fetchGSCRankingData(gscClient, siteUrl, startDate, endDate, kw.keyword)
+
+                // Fallback for Prefix Properties
+                if ((!history || history.length === 0) && !siteUrl.startsWith('sc-domain:')) {
+                    const fallbackUrl = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : `${siteUrl}/`
+                    const fallbackData = await fetchGSCRankingData(gscClient, fallbackUrl, startDate, endDate, kw.keyword)
+                    if (fallbackData.history && fallbackData.history.length > 0) {
+                        history = fallbackData.history
+                        siteUrl = fallbackUrl
+                    }
+                }
+
                 if (history && history.length > 0) {
                     const historyPayload = history.map(h => ({
                         keyword_id: kw.id,
@@ -717,8 +878,8 @@ app.get('/api/gsc/trial-keywords', async (req, res) => {
             results = allRows;
         }
 
-        // Sort by Impressions Descending and take top 25
-        const sorted = results.sort((a, b) => b.impressions - a.impressions).slice(0, 25)
+        // Sort by Impressions Descending and take top 50
+        const sorted = results.sort((a, b) => b.impressions - a.impressions).slice(0, 50)
 
         const allKeywords = sorted.map(kw => ({
             ...kw,

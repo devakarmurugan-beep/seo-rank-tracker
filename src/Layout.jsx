@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Key, FileText, BarChart3, ChevronDown, Globe, Calendar, Bell, BarChart2, Rows3, Rows4, Plus, X, Loader2, Settings as SettingsIcon, LogOut, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Key, FileText, BarChart3, ChevronDown, Globe, Calendar, Bell, BarChart2, Rows3, Rows4, Plus, X, Loader2, Settings as SettingsIcon, LogOut, CreditCard, Shield } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { fetchAvailableGSCSites, addProjectSite } from './lib/api'
-import { canAddSite, getSiteLimit } from './lib/permissions'
+import { canAddSite, getSiteLimit, isAdmin } from './lib/permissions'
 import { useNavigate } from 'react-router-dom'
 import { LogoIcon } from './components/Logo'
+import { getGSCDateRange } from './lib/dateUtils'
 
 export default function Layout({ c, setCompactMode, dateRange, handleDateRange, isGscConnected, userSites, activeSite, setActiveSite, isLoadingData, refreshSites, syncSiteData, session, isTrial }) {
     const location = useLocation()
@@ -233,8 +234,8 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                     )}
                 </div>
                 <nav className="flex-1 px-3 mt-6 space-y-1">
-                    {[{ id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' }, { id: 'keywords', icon: Key, label: 'Keywords' }, { id: 'pages', icon: FileText, label: 'Pages' }, { id: 'reports', icon: BarChart2, label: 'Reports' }, { id: 'settings', icon: CreditCard, label: 'Subscription' }].map((item) => {
-                        const Icon = item.icon
+                    {[{ id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' }, { id: 'keywords', icon: Key, label: 'Keywords' }, { id: 'pages', icon: FileText, label: 'Pages' }, { id: 'reports', icon: BarChart2, label: 'Reports' }, { id: 'settings', icon: CreditCard, label: 'Subscription' }, ...(isAdmin(session?.user) ? [{ id: 'admin', icon: Shield, label: 'Admin' }] : [])].map((item) => {
+                        const Icon = item.icon || Shield
                         const isActive = activePage === item.id
                         return (<Link to={`/${item.id}`} key={item.id} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] font-medium ${isActive ? 'bg-[#2563EB] text-white shadow-[0_2px_8px_rgba(37,99,235,0.3)]' : 'text-[#94A3B8] hover:bg-white/5 hover:text-white'}`}><Icon className="w-[18px] h-[18px]" />{item.label}</Link>)
                     })}
@@ -287,18 +288,15 @@ export default function Layout({ c, setCompactMode, dateRange, handleDateRange, 
                         {/* Divider */}
                         <div className="w-px h-6 bg-[#E5E7EB]"></div>
                         <div className="flex items-center bg-white border border-[#E5E7EB] rounded-lg overflow-hidden">
-                            {['7d', '30d', '90d', '1y', '16m'].map((r) => (<button key={r} onClick={() => handleDateRange(r)} className={`px-3 py-2 text-[12px] font-medium tabular-nums ${dateRange === r ? 'bg-[#2563EB] text-white' : 'text-[#4B5563] hover:bg-[#F9FAFB]'}`}>{r}</button>))}
+                             {['7d', '28d', '3m', '6m', '12m'].map((r) => (<button key={r} onClick={() => handleDateRange(r)} className={`px-3 py-2 text-[12px] font-medium tabular-nums ${dateRange === r ? 'bg-[#2563EB] text-white' : 'text-[#4B5563] hover:bg-[#F9FAFB]'}`}>{r}</button>))}
                         </div>
                         {(() => {
-                            let start, end;
-                            if (typeof dateRange === 'object' && dateRange.type === 'custom') {
-                                start = new Date(dateRange.start)
-                                end = new Date(dateRange.end)
-                            } else {
-                                const rangeDays = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : dateRange === '1y' ? 365 : 480
-                                end = new Date()
-                                start = new Date(end.getTime() - (rangeDays * 24 * 60 * 60 * 1000))
-                            }
+                            // Use GSC-accurate dates so the displayed range matches Search Console
+                            const { startDate: gscStart, endDate: gscEnd } = getGSCDateRange(
+                                typeof dateRange === 'object' ? dateRange : dateRange
+                            )
+                            const start = new Date(gscStart)
+                            const end   = new Date(gscEnd)
                             const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                             return (
                                 <div className="relative" ref={datePickerRef}>

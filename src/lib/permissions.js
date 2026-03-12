@@ -1,6 +1,7 @@
 // Admins and Internal Team members who get full access automatically
 export const ADMIN_EMAILS = [
     'devakarmurugan@gmail.com',
+    'sylvester.jayan@hilabs.com',
     // Add more admin emails here
 ];
 
