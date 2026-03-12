@@ -2,68 +2,107 @@ import { supabase } from './supabase'
 import { getGSCDateRange, getGSCEndDate } from './dateUtils'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CORE HELPER: paginate ANY supabase query builder that uses .range()
-// Supabase defaults to 1000 rows. This helper pages through ALL rows.
+// PAGINATION HELPER — accepts a FACTORY FUNCTION, not a pre-built query.
+// Each iteration creates a FRESH Supabase query with the correct .range().
+// This avoids the Supabase JS v2 mutable-builder bug where calling .range()
+// on a builder that has already been awaited returns unpredictable results.
+//
+// Usage:
+//   await paginateQuery((from, to) =>
+//       supabase.from('table').select('*').eq('x', val).range(from, to)
+//   )
 // ─────────────────────────────────────────────────────────────────────────────
-const fetchAllRows = async (queryBuilder, pageSize = 1000) => {
-    let all = []
+const paginateQuery = async (queryFactory, pageSize = 1000) => {
+    let all  = []
     let page = 0
-    let hasMore = true
-    while (hasMore) {
+    while (true) {
         const from = page * pageSize
-        const { data, error } = await queryBuilder.range(from, from + pageSize - 1)
-        if (error) throw error
+        const to   = from + pageSize - 1
+        const { data, error } = await queryFactory(from, to)
+        if (error) {
+            console.error('[paginateQuery] Error:', error.message)
+            break
+        }
         all = all.concat(data || [])
-        hasMore = (data || []).length === pageSize
+        if ((data || []).length < pageSize) break   // last page or empty
         page++
     }
     return all
 }
 
 /**
- * Fetches the aggregated cache for ALL keywords found in GSC for this site.
- * Uses pagination to bypass Supabase's 1000-row default limit.
+ * Fetches ALL rows from keyword_cache for a site (paginated).
  */
 export const fetchKeywordCache = async (siteId) => {
     try {
-        const data = await fetchAllRows(
-            supabase.from('keyword_cache').select('*').eq('site_id', siteId)
+        return await paginateQuery((from, to) =>
+            supabase.from('keyword_cache').select('*').eq('site_id', siteId).range(from, to)
         )
-        return data
     } catch (error) {
-        console.error("Error fetching keyword cache:", error)
+        console.error('fetchKeywordCache error:', error)
         return []
     }
 }
 
 /**
- * Fetches ALL keywords in the registry for this site with pagination.
+ * Fetches ALL keywords from the registry for a site (paginated).
  */
 const fetchKeywordsRegistry = async (siteId) => {
     try {
-        const data = await fetchAllRows(
+        return await paginateQuery((from, to) =>
             supabase
                 .from('keywords')
                 .select('id, keyword, intent, category, is_tracked')
                 .eq('site_id', siteId)
+                .range(from, to)
         )
-        return data
     } catch (error) {
-        console.error("Error fetching keywords registry:", error)
+        console.error('fetchKeywordsRegistry error:', error)
         return []
     }
 }
 
 /**
- * Fetches all tracked keywords for a specific site, including history for the date range.
- * Date range is anchored to GSC's real end date (today - 3 days) to match Search Console.
+ * Fetches history rows for a set of keyword IDs within a date range.
+ * IDs are chunked in groups of 500 to avoid PostgREST .in() URL-length limits.
+ * Each chunk is paginated independently.
+ */
+const fetchHistoryForIds = async (keywordIds, startDate, endDate) => {
+    if (!keywordIds || keywordIds.length === 0) return []
+
+    const CHUNK_SIZE = 500
+    const all = []
+
+    for (let i = 0; i < keywordIds.length; i += CHUNK_SIZE) {
+        const chunk = keywordIds.slice(i, i + CHUNK_SIZE)
+
+        const rows = await paginateQuery((from, to) =>
+            supabase
+                .from('keyword_history')
+                .select('keyword_id, date, position, clicks, impressions, ctr, page_url')
+                .in('keyword_id', chunk)
+                .gte('date', startDate)
+                .lte('date', endDate)
+                .order('date', { ascending: false })
+                .range(from, to)
+        )
+
+        all.push(...rows)
+    }
+
+    return all
+}
+
+/**
+ * Main data loader: fetches all keywords plus history-based metrics.
+ * Date range is anchored to GSC's real end date (today − 3 days).
  */
 export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d') => {
     try {
-        // ── STEP 1: Resolve GSC-accurate date range ──────────────────────────
+        // ── STEP 1: Resolve GSC-accurate date window ──────────────────────────
         const { startDate, endDate } = getGSCDateRange(dateRange)
 
-        // Previous period for change calculation (same length, directly before current)
+        // Previous period (same length, directly before current window)
         const currStart  = new Date(startDate)
         const currEnd    = new Date(endDate)
         const periodDays = Math.round((currEnd - currStart) / (24 * 60 * 60 * 1000)) + 1
@@ -72,84 +111,50 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
         const prevStartStr = prevStart.toISOString().split('T')[0]
         const prevEndStr   = prevEnd.toISOString().split('T')[0]
 
-        // ── STEP 2: Load ALL base data (with pagination) ─────────────────────
+        // ── STEP 2: Load keyword registry + cache in parallel ─────────────────
         const [cacheData, allKeywordsRegistry] = await Promise.all([
             fetchKeywordCache(siteId),
             fetchKeywordsRegistry(siteId)
         ])
 
+        // cacheMap: lowercase keyword → cache row (90-day aggregate snapshot)
         const cacheMap = new Map((cacheData || []).map(c => [c.keyword.toLowerCase(), c]))
 
-        // ── STEP 3: Fetch history ONLY for tracked keywords ──────────────────
-        const trackedIds = (allKeywordsRegistry || []).filter(k => k.is_tracked).map(k => k.id)
+        console.log(`[dataFetcher] Registry: ${allKeywordsRegistry.length} keywords, Cache: ${cacheData.length} entries`)
 
-        let currentHistory  = []
-        let previousHistory = []
+        // ── STEP 3: Fetch history for tracked keywords only ───────────────────
+        const trackedIds = (allKeywordsRegistry || [])
+            .filter(k => k.is_tracked)
+            .map(k => k.id)
 
-        if (trackedIds.length > 0) {
-            const PAGE_SIZE = 1000
+        console.log(`[dataFetcher] Tracked: ${trackedIds.length} keywords`)
 
-            const fetchPeriod = async (start, end) => {
-                let all  = []
-                let page = 0
-                let hasMore = true
-                while (hasMore) {
-                    const from = page * PAGE_SIZE
-                    // Supabase .in() can fail with very large arrays; chunk if needed
-                    const idChunks = []
-                    for (let i = 0; i < trackedIds.length; i += 500) {
-                        idChunks.push(trackedIds.slice(i, i + 500))
-                    }
+        const [currentHistory, previousHistory] = await Promise.all([
+            fetchHistoryForIds(trackedIds, startDate, endDate),
+            fetchHistoryForIds(trackedIds, prevStartStr, prevEndStr)
+        ])
 
-                    for (const chunk of idChunks) {
-                        const { data: history, error: hError } = await supabase
-                            .from('keyword_history')
-                            .select('keyword_id, date, position, clicks, impressions, ctr, page_url')
-                            .in('keyword_id', chunk)
-                            .gte('date', start)
-                            .lte('date', end)
-                            .order('date', { ascending: false })
-                            .range(from, from + PAGE_SIZE - 1)
-                        if (hError) throw hError
-                        all = all.concat(history || [])
-                    }
-                    // Note: with chunking we might over-fetch, but hasMore check is conservative
-                    hasMore = false  // Each chunk handles its own pagination above
-                    page++
-                    break // Single full pass for now — chunks handle the volume
-                }
-                return all
-            }
+        console.log(`[dataFetcher] Current history: ${currentHistory.length} rows, Previous: ${previousHistory.length} rows`)
 
-            ;[currentHistory, previousHistory] = await Promise.all([
-                fetchPeriod(startDate, endDate),
-                fetchPeriod(prevStartStr, prevEndStr)
-            ])
-        }
-
-        // ── STEP 4: Build lookup maps ─────────────────────────────────────────
-        // Aggregate all rows per keyword per period:
-        // - sum clicks and impressions
-        // - weighted-average position (by impressions) — matches GSC formula
+        // ── STEP 4: Aggregate history per keyword per period ──────────────────
+        // Mirrors GSC: sum clicks/impressions, weighted-avg position by impressions
         const buildPeriodMap = (histRows) => {
             const map = {}
             histRows.forEach(h => {
                 if (!map[h.keyword_id]) {
                     map[h.keyword_id] = {
-                        clicks:     0,
+                        clicks:      0,
                         impressions: 0,
-                        pos_sum:    0,
-                        pos_weight: 0,
-                        latestDate: '',
-                        latestPos:  null,
-                        latestPage: null,
+                        pos_sum:     0,
+                        pos_weight:  0,
+                        latestDate:  '',
+                        latestPage:  null,
                     }
                 }
                 const m   = map[h.keyword_id]
                 const imp = h.impressions || 0
                 m.clicks      += (h.clicks || 0)
                 m.impressions += imp
-                // Weighted position: weight each position by impressions (GSC method)
                 if (typeof h.position === 'number') {
                     const w = imp > 0 ? imp : 1
                     m.pos_sum    += h.position * w
@@ -157,7 +162,6 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
                 }
                 if (!m.latestDate || h.date > m.latestDate) {
                     m.latestDate = h.date
-                    m.latestPos  = h.position
                     m.latestPage = h.page_url
                 }
             })
@@ -184,7 +188,7 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
             const curr    = currentMap[kw.id]  || null
             const prev    = previousMap[kw.id] || null
 
-            // Impressions & clicks: prefer period history sum, fall back to cache
+            // Impressions + clicks: prefer current-period history, fallback to cache
             const impressions = (curr && curr.impressions > 0)
                 ? curr.impressions
                 : (cache.total_impressions || 0)
@@ -192,30 +196,27 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
                 ? curr.clicks
                 : (cache.total_clicks || 0)
 
-            // Position: prefer period weighted-avg, fall back to cache
-            const rawPosition = curr?.avgPos ?? cache.avg_pos ?? null
+            // Position: prefer current-period weighted average, fallback to cache
+            const rawPosition = typeof curr?.avgPos === 'number'
+                ? curr.avgPos
+                : (typeof cache.avg_pos === 'number' ? cache.avg_pos : null)
 
-            // N/R guard: < 10 impressions = statistically unreliable
+            // Display position: N/R if < 10 impressions (statistically unreliable)
             const displayPosition    = (!rawPosition || impressions < 10) ? 'N/R' : parseFloat(rawPosition.toFixed(1))
             const displayImpressions = impressions === 0 ? '-' : impressions
             const displayClicks      = impressions === 0 ? '-' : clicks
             const displayCtr         = impressions > 0  ? clicks / impressions : 0
 
-            // ── Change Calculation ──────────────────────────────────────────────────
-            // Priority order:
-            // 1. Best: exact previous-period weighted avg vs current-period weighted avg
-            //    (requires ~56 days of synced history)
-            // 2. Fallback: current-period avg vs the 90-day cache baseline
-            //    (works as long as the keyword has been synced at least once)
-            // Positive = improved (rank went UP = lower position number = better)
+            // ── Change Calculation ────────────────────────────────────────────
+            // Priority 1: exact period-vs-period comparison (best, needs 56+ days of history)
+            // Priority 2: current period vs 90-day cache baseline (works after first sync)
+            // Positive change = rank IMPROVED (smaller position = higher rank)
             let change = 0
             if (curr?.avgPos) {
                 if (prev?.avgPos) {
-                    // Best case: period-vs-period
                     change = parseFloat((prev.avgPos - curr.avgPos).toFixed(1))
-                } else if (cache.avg_pos && curr.avgPos !== cache.avg_pos) {
-                    // Fallback: compare current period against 90-day cache baseline
-                    // Positive = current period is BETTER than the long-term average
+                } else if (cache.avg_pos && Math.abs(cache.avg_pos - curr.avgPos) > 0.5) {
+                    // Only show change if difference is meaningful (> 0.5 positions)
                     change = parseFloat((cache.avg_pos - curr.avgPos).toFixed(1))
                 }
             }
@@ -228,12 +229,11 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
                 ? parseFloat(Math.min(...dailyPositions).toFixed(1))
                 : (rawPosition ? parseFloat(rawPosition.toFixed(1)) : '-')
 
-            // Trend sparkline (oldest → newest)
+            // Sparkline trend (oldest → newest)
             const trend = (dailyLookup[kw.id] || [])
                 .sort((a, b) => new Date(a.date) - new Date(b.date))
                 .map(d => d.position)
 
-            // History array for any component still consuming it
             const sortedHistory = (dailyLookup[kw.id] || [])
                 .sort((a, b) => new Date(b.date) - new Date(a.date))
                 .map(d => ({
@@ -253,7 +253,9 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
                 pageType:         curr?.latestPage
                     ? (curr.latestPage.includes('/blog/') ? 'Blog' : 'Landing')
                     : 'Unknown',
+                // displayPosition is the user-facing value ('N/R' or rounded number)
                 position:         displayPosition,
+                // rawPosition is always numeric (null → 1000 sentinel) for internal comparisons
                 rawPosition:      typeof rawPosition === 'number' ? rawPosition : 1000,
                 change,
                 bestPos,
@@ -268,13 +270,13 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
             }
         })
     } catch (error) {
-        console.error("Error in fetchTrackedKeywordsWithHistory:", error)
+        console.error('fetchTrackedKeywordsWithHistory FAILED:', error)
         return []
     }
 }
 
 /**
- * Fetches all tracked properties (domains) belonging to the authenticated user
+ * Fetches all tracked properties belonging to the authenticated user.
  */
 export const fetchUserSites = async (userId) => {
     try {
@@ -285,13 +287,13 @@ export const fetchUserSites = async (userId) => {
         if (error) throw error
         return sites || []
     } catch (error) {
-        console.error("Error fetching user sites:", error)
+        console.error('fetchUserSites error:', error)
         return []
     }
 }
 
 /**
- * Fetches total count of indexed pages for a site
+ * Fetches total count of indexed pages for a site.
  */
 export const fetchTotalPagesCount = async (siteId) => {
     try {
@@ -307,17 +309,20 @@ export const fetchTotalPagesCount = async (siteId) => {
 }
 
 /**
- * Fetches keyword intent distribution for the chart.
- * Paginated to handle 1000+ keywords.
+ * Fetches keyword intent distribution (paginated to bypass 1K row limit).
  */
 export const fetchIntentDistribution = async (siteId) => {
     try {
-        // Paginate to get ALL keywords, not just first 1000
-        const allKeywords = await fetchAllRows(
-            supabase.from('keywords').select('intent').eq('site_id', siteId)
+        const allKeywords = await paginateQuery((from, to) =>
+            supabase.from('keywords').select('intent').eq('site_id', siteId).range(from, to)
         )
 
-        const dist = { 'Navigational': 0, 'Transactional': 0, 'Commercial': 0, 'Informational': 0 }
+        const dist = {
+            'Navigational':  0,
+            'Transactional': 0,
+            'Commercial':    0,
+            'Informational': 0
+        }
         allKeywords.forEach(kw => {
             const intent = kw.intent || 'Informational'
             if (dist[intent] !== undefined) dist[intent]++
@@ -325,44 +330,43 @@ export const fetchIntentDistribution = async (siteId) => {
         })
 
         return Object.entries(dist).map(([name, value]) => ({
-            name,
-            value,
-            color: name === 'Navigational'    ? '#2563EB'
-                 : name === 'Transactional'   ? '#059669'
-                 : name === 'Commercial'      ? '#D97706'
+            name, value,
+            color: name === 'Navigational'  ? '#2563EB'
+                 : name === 'Transactional' ? '#059669'
+                 : name === 'Commercial'    ? '#D97706'
                  : '#9CA3AF'
         }))
     } catch (error) {
-        console.error("Error in fetchIntentDistribution:", error)
+        console.error('fetchIntentDistribution error:', error)
         return []
     }
 }
 
 /**
- * Fetches top non-branded keywords from cache (for trial users).
- * Cache data is already aggregated for the past 90 days.
- * Paginated to get all keywords.
+ * Fetches top non-branded keywords from cache (trial users).
+ * Cache is the 90-day aggregate — no history queries needed.
  */
 export const fetchTrialKeywords = async (siteId) => {
     try {
-        // fetchKeywordCache is already paginated
-        const cache = await fetchKeywordCache(siteId)
+        const cache  = await fetchKeywordCache(siteId)
+        const gscEnd = getGSCEndDate()
+
         if (cache && cache.length > 0) {
-            const gscEnd = getGSCEndDate()
             return cache
-                .filter(kw => (kw.total_impressions || 0) >= 10) // N/R guard
                 .sort((a, b) => b.total_impressions - a.total_impressions)
                 .slice(0, 50)
                 .map(kw => {
                     const impressions = kw.total_impressions || 0
-                    const position    = !kw.avg_pos ? 'N/R' : parseFloat(kw.avg_pos.toFixed(1))
+                    const position    = (impressions < 10 || !kw.avg_pos)
+                        ? 'N/R'
+                        : parseFloat(kw.avg_pos.toFixed(1))
                     return {
                         id:          kw.id,
                         keyword:     kw.keyword,
                         position,
                         clicks:      kw.total_clicks || 0,
                         impressions: impressions || '-',
-                        ctr:         impressions > 0 ? (kw.total_clicks / impressions) : 0,
+                        ctr:         impressions > 0 ? kw.total_clicks / impressions : 0,
                         page:        '-',
                         change:      0,
                         bestPos:     position,
@@ -371,37 +375,40 @@ export const fetchTrialKeywords = async (siteId) => {
                             date:        gscEnd,
                             position:    kw.avg_pos,
                             clicks:      kw.total_clicks,
-                            impressions: impressions,
-                            ctr:         impressions > 0 ? (kw.total_clicks / impressions) : 0,
+                            impressions,
+                            ctr:         impressions > 0 ? kw.total_clicks / impressions : 0,
                             page_url:    '-'
                         }]
                     }
                 })
         }
     } catch (e) {
-        console.error("Error in fetchTrialKeywords:", e)
+        console.error('fetchTrialKeywords error:', e)
     }
     return []
 }
 
 /**
- * Fetches analytics for all indexed pages. Date range uses GSC-accurate dates.
+ * Fetches analytics for all indexed pages (paginated history).
  */
 export const fetchPageAnalytics = async (siteId, dateRange = '28d') => {
     try {
         const { startDate, endDate } = getGSCDateRange(dateRange)
 
-        const { data: pages } = await supabase.from('pages').select('*').eq('site_id', siteId)
+        const { data: pages } = await supabase
+            .from('pages')
+            .select('*')
+            .eq('site_id', siteId)
 
-        // Paginate history
-        const history = await fetchAllRows(
+        const history = await paginateQuery((from, to) =>
             supabase
                 .from('keyword_history')
-                .select('*, keywords!inner(keyword)')
+                .select('*, keywords!inner(keyword, site_id)')
                 .eq('keywords.site_id', siteId)
                 .gte('date', startDate)
                 .lte('date', endDate)
                 .order('date', { ascending: false })
+                .range(from, to)
         )
 
         if (!history || history.length === 0) return []
@@ -418,7 +425,6 @@ export const fetchPageAnalytics = async (siteId, dateRange = '28d') => {
             })
             const topKw = Object.entries(kwCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null
 
-            // Weighted average position (matches GSC)
             const totalWeight = pH.reduce((acc, h) => acc + (h.impressions || 1), 0)
             const weightedPos = pH.reduce((acc, h) => acc + (h.position || 0) * (h.impressions || 1), 0)
             const avgPos      = totalWeight > 0 ? (weightedPos / totalWeight).toFixed(1) : '-'
@@ -437,7 +443,7 @@ export const fetchPageAnalytics = async (siteId, dateRange = '28d') => {
             }
         })
     } catch (error) {
-        console.error("Error in fetchPageAnalytics:", error)
+        console.error('fetchPageAnalytics error:', error)
         return []
     }
 }
