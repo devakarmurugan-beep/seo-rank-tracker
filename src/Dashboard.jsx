@@ -1,20 +1,19 @@
+import { useLocation } from 'react-router-dom'
 import { Key, FileText, TrendingUp, TrendingDown, MousePointerClick, Target, Plus, Clock, UserPlus, ChevronRight, RefreshCw, Trophy, CircleCheck, TriangleAlert, ArrowDown, Globe, BarChart3, X } from 'lucide-react'
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
 import { getGSCDateRange, getRangeLabel } from './lib/dateUtils'
 
 /* 5-tier rank badge */
 const getPosBadge = (pos) => {
-    if (pos <= 3) return 'bg-[#DCFCE7] text-[#14532D]'
+    if (pos <= 3)  return 'bg-[#DCFCE7] text-[#14532D]'
     if (pos <= 10) return 'bg-[#D1FAE5] text-[#065F46]'
     if (pos <= 20) return 'bg-[#FEF3C7] text-[#92400E]'
     if (pos <= 50) return 'bg-[#FFEDD5] text-[#9A3412]'
     return 'bg-[#FEE2E2] text-[#991B1B]'
 }
 
+// Icon map for distribution chart — defined once here
 const distIcons = { trophy: Trophy, circleCheck: CircleCheck, triangleAlert: TriangleAlert, arrowDown: ArrowDown }
-
-import { useLocation } from 'react-router-dom'
-import { supabase } from './lib/supabase'
 
 export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData, isTrial }) {
     const location = useLocation()
@@ -135,8 +134,6 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', i
             if (dist) dist.value++
         }
     })
-
-    const distIcons = { trophy: Trophy, circleCheck: CircleCheck, triangleAlert: TriangleAlert, arrowDown: ArrowDown }
 
     if (!isGscConnected) {
         return (

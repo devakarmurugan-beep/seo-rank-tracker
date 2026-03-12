@@ -604,9 +604,10 @@ app.post('/api/keywords/sync-specific', async (req, res) => {
         }
 
         const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
+        // GSC 3-day delay
         const today = new Date()
-        const endDate = today.toISOString().split('T')[0]
-        const startDate = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+        const endDate   = new Date(today.getTime() - (3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+        const startDate = new Date(today.getTime() - ((28 + 3) * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
 
         // Site URL normalize
         let siteUrl = site.property_url
@@ -714,10 +715,13 @@ app.get('/api/gsc/locations', async (req, res) => {
         }
 
         if (!startDate || !endDate) {
-            const rangeDays = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : dateRange === '1y' ? 365 : 480
+            // GSC delay map: 3 days behind today
+            const delay = 3
+            const rangeMap = { '7d': 7, '28d': 28, '30d': 30, '3m': 91, '90d': 91, '6m': 182, '12m': 365, '1y': 365 }
+            const rangeDays = rangeMap[dateRange] || 28
             const today = new Date()
-            endDate = new Date(today.getTime() - (2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
-            startDate = new Date(today.getTime() - ((rangeDays + 2) * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+            endDate   = new Date(today.getTime() - (delay * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+            startDate = new Date(today.getTime() - ((rangeDays + delay) * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
         }
 
         const gscClient = getAuthenticatedGSCClient(connection.refresh_token)
