@@ -1,15 +1,9 @@
 {
-  "framework": "vite",
-  "installCommand": "npm install && cd api && npm install",
-  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build:app",
+  "outputDirectory": "apps/app/dist",
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
