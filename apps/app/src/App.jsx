@@ -47,7 +47,7 @@ function App() {
   const isTrial = getUserPlan(session?.user) === 'free_trial'
 
   const getApiUrl = () => {
-    return import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    return import.meta.env.VITE_API_URL || ''
   }
 
   const loadSiteData = async (site, currentRange = dateRange, silent = false) => {

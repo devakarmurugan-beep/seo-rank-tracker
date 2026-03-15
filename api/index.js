@@ -19,12 +19,12 @@ app.use('/api/payments', paymentsRoute)
 let _supabaseAdmin;
 const getSupabaseAdmin = () => {
     if (!_supabaseAdmin) {
-        if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+        if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
             throw new Error('Missing Supabase Environment Variables')
         }
         _supabaseAdmin = createClient(
             process.env.VITE_SUPABASE_URL,
-            process.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+            process.env.SUPABASE_SERVICE_ROLE_KEY
         )
     }
     return _supabaseAdmin
@@ -40,7 +40,7 @@ app.get('/api/health', (req, res) => {
     const missing = []
     const check = {
         VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
-        VITE_SUPABASE_SERVICE_ROLE_KEY: !!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
         GCP_CLIENT_ID: !!process.env.GCP_CLIENT_ID,
         DODO_PAYMENTS_API_KEY: !!process.env.DODO_PAYMENTS_API_KEY,
     }

@@ -4,12 +4,12 @@ Two separate Vercel projects from the same repo:
 
 | Project | Domain | Root Directory |
 |---------|--------|----------------|
-| **website** | `seoreporting.com` | `apps/website` |
-| **app + api** | `app.seoreporting.com` | *(repo root)* |
+| **website** | `seoranktrackingtool.com` | `apps/website` |
+| **app + api** | `app.seoranktrackingtool.com` | *(repo root)* |
 
 ---
 
-## Project 1: Website (`seoreporting.com`)
+## Project 1: Website (`seoranktrackingtool.com`)
 
 ### Vercel settings
 
@@ -22,7 +22,7 @@ Two separate Vercel projects from the same repo:
 
 ### Domains
 
-Add `seoreporting.com` and `www.seoreporting.com` in **Settings → Domains**.
+Add `seoranktrackingtool.com` and `www.seoranktrackingtool.com` in **Settings → Domains**.
 
 ### Environment variables
 
@@ -31,7 +31,7 @@ Add `seoreporting.com` and `www.seoreporting.com` in **Settings → Domains**.
 
 ---
 
-## Project 2: App + API (`app.seoreporting.com`)
+## Project 2: App + API (`app.seoranktrackingtool.com`)
 
 ### How it works
 
@@ -50,17 +50,19 @@ Add `seoreporting.com` and `www.seoreporting.com` in **Settings → Domains**.
 
 ### Domains
 
-Add `app.seoreporting.com` in **Settings → Domains**.
+Add `app.seoranktrackingtool.com` in **Settings → Domains**.
 
 ### Environment variables
 
 **Supabase**
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_SUPABASE_SERVICE_ROLE_KEY` *(API only, keep secret)*
+- `VITE_SUPABASE_URL` — project URL (used by both API and frontend build)
+- `VITE_SUPABASE_ANON_KEY` — anon key (frontend)
+- `SUPABASE_SERVICE_ROLE_KEY` — service role key (API only, never expose to frontend)
 
 **Google / GSC**
 - `GCP_CLIENT_ID`
+- `GCP_CLIENT_SECRET`
+- `GCP_REDIRECT_URI` — e.g. `https://app.seoranktrackingtool.com/auth/callback`
 
 **Payments**
 - `DODO_PAYMENTS_API_KEY`
@@ -68,16 +70,20 @@ Add `app.seoreporting.com` in **Settings → Domains**.
 **Cron**
 - `CRON_SECRET`
 
+**Frontend (optional — defaults to relative URLs on same domain)**
+- `VITE_API_URL` — leave unset in production; set to `http://localhost:3001` in local `.env.local`
+- `VITE_SITE_URL` — e.g. `https://app.seoranktrackingtool.com` (used for OAuth redirect URLs)
+
 ---
 
 ## Verification
 
 ```
-GET https://seoreporting.com              → website homepage
-GET https://seoreporting.com/pricing      → should NOT 404 (SPA routing)
-GET https://app.seoreporting.com          → dashboard login
-GET https://app.seoreporting.com/dashboard → should NOT 404 (SPA routing)
-GET https://app.seoreporting.com/api/health → { "status": "ok" }
+GET https://seoranktrackingtool.com              → website homepage
+GET https://seoranktrackingtool.com/pricing      → should NOT 404 (SPA routing)
+GET https://app.seoranktrackingtool.com          → dashboard login
+GET https://app.seoranktrackingtool.com/dashboard → should NOT 404 (SPA routing)
+GET https://app.seoranktrackingtool.com/api/health → { "status": "ok" }
 ```
 
 ---
@@ -87,7 +93,7 @@ GET https://app.seoreporting.com/api/health → { "status": "ok" }
 Call via scheduler or Vercel Cron:
 
 ```
-POST https://app.seoreporting.com/api/cron/daily-sync
+POST https://app.seoranktrackingtool.com/api/cron/daily-sync
 Authorization: Bearer <CRON_SECRET>
 ```
 

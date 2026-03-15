@@ -18,7 +18,7 @@ export default function AdminDashboard() {
     const fetchUsers = async () => {
         setIsLoading(true)
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/users`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/admin/users`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ adminId: session?.user?.id })
@@ -42,7 +42,7 @@ export default function AdminDashboard() {
 
     const handleUpdatePlan = async (userId, newPlan) => {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/update-user`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/admin/update-user`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
