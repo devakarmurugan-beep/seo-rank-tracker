@@ -5,8 +5,6 @@ if (process.env.NODE_ENV !== 'production') {
 
 import express from 'express'
 import cors from 'cors'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
 import { createClient } from '@supabase/supabase-js'
 import { getAuthenticatedGSCClient, fetchGSCRankingData, fetchGSCSites, classifyKeywordIntent } from './services/gscUtility.js'
 import paymentsRoute from './routes/payments.js'
@@ -915,21 +913,5 @@ if (process.env.NODE_ENV !== 'production') {
         console.log(`Backend Server running on port ${PORT}`)
     })
 }
-
-// Serve SPAs based on host header (production only)
-// All unmatched routes fall through to here after the API routes above
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const APP_DIST = join(__dirname, '../apps/app/dist')
-const WEBSITE_DIST = join(__dirname, '../apps/website/dist')
-const serveApp = express.static(APP_DIST)
-const serveWebsite = express.static(WEBSITE_DIST)
-
-app.use((req, res, next) => {
-    const host = req.headers.host || ''
-    const isApp = host.startsWith('app.')
-    const serve = isApp ? serveApp : serveWebsite
-    const distDir = isApp ? APP_DIST : WEBSITE_DIST
-    serve(req, res, () => res.sendFile(join(distDir, 'index.html')))
-})
 
 export default app

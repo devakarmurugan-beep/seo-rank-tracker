@@ -1,91 +1,101 @@
 # Deployment Guide
 
-Single Vercel project serving:
-- `api/` — Express.js serverless API
-- `apps/app/` — Dashboard SPA (`app.seoranktrackingtool.com`)
-- `apps/website/` — Marketing site SPA (`seoranktrackingtool.com`)
+Two separate Vercel projects from the same repo:
+
+| Project | Domain | Root Directory |
+|---------|--------|----------------|
+| **website** | `seoreporting.com` | `apps/website` |
+| **app + api** | `app.seoreporting.com` | *(repo root)* |
 
 ---
 
-## How It Works
+## Project 1: Website (`seoreporting.com`)
 
-All traffic is handled by a single `@vercel/node` serverless function wrapping the Express app (`api/index.js`).
+### Vercel settings
 
-- **API routes** (`/api/*`) are handled by Express route handlers.
-- **Static files** are served by Express based on the `host` header:
-  - `app.seoranktrackingtool.com` → serves `apps/app/dist/`
-  - everything else → serves `apps/website/dist/`
-- **SPA fallback**: any path not matched by a static file falls through to the SPA's `index.html` so React Router handles client-side routes.
+| Setting | Value |
+|---------|-------|
+| Framework Preset | Vite |
+| Root Directory | `apps/website` |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Install Command | `npm install` |
 
-The `@vercel/node` builder uses `bundle: false` + `includeFiles` to deploy the full file tree (API code + both built SPAs) as one serverless function.
+### Domains
+
+Add `seoreporting.com` and `www.seoreporting.com` in **Settings → Domains**.
+
+### Environment variables
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
 ---
 
-## Vercel Project Setup
+## Project 2: App + API (`app.seoreporting.com`)
 
-### 1. Import repo
+### How it works
 
-Go to [vercel.com/new](https://vercel.com/new) → import the GitHub repo.
+- Vercel serves `apps/app/dist/` directly as static files (no Express involved in serving the SPA)
+- `/api/*` requests are routed to `api/index.js` (auto-detected by Vercel as a serverless function)
+- `vercel.json` rewrites handle SPA client-side routing (fallback to `index.html`)
 
-### 2. Project settings
-
-In **Settings → General**, set:
+### Vercel settings
 
 | Setting | Value |
 |---------|-------|
 | Framework Preset | Other |
-| Root Directory | *(leave blank)* |
-| Build Command | `npm run build` |
-| Output Directory | *(leave blank)* |
+| Root Directory | *(leave blank — repo root)* |
+| Build Command | `npm run build:app` |
+| Output Directory | `apps/app/dist` |
 | Install Command | `npm install` |
 
-### 3. Environment variables
+> `npm install` at root triggers `postinstall` which installs deps in `api/`, `apps/app/`, and `apps/website/`. `npm run build:app` builds only the dashboard SPA.
 
-In **Settings → Environment Variables**, add all of the following for **Production**:
+### Domains
+
+Add `app.seoreporting.com` in **Settings → Domains**.
+
+### Environment variables
 
 **Supabase**
-- `VITE_SUPABASE_URL` — Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` — Supabase anon key (used by frontends)
-- `VITE_SUPABASE_SERVICE_ROLE_KEY` — Service role key (API only, keep secret)
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_SERVICE_ROLE_KEY` *(API only, keep secret)*
 
 **Google / GSC**
-- `GCP_CLIENT_ID` — Google OAuth client ID
+- `GCP_CLIENT_ID`
 
 **Payments**
-- `DODO_PAYMENTS_API_KEY` — Dodo Payments API key
+- `DODO_PAYMENTS_API_KEY`
 
 **Cron**
-- `CRON_SECRET` — Random secret string for protecting `/api/cron/daily-sync`
-
-### 4. Domains
-
-In **Settings → Domains**, add:
-- `seoranktrackingtool.com`
-- `www.seoranktrackingtool.com`
-- `app.seoranktrackingtool.com`
-
-All three point to the same Vercel project. Subdomain routing is handled by `vercel.json`.
-
-### 5. Deploy
-
-Push to the connected branch — Vercel auto-deploys. Or manually:
-
-```bash
-vercel --prod
-```
+- `CRON_SECRET`
 
 ---
 
 ## Verification
 
-After deploy, check:
+```
+GET https://seoreporting.com              → website homepage
+GET https://seoreporting.com/pricing      → should NOT 404 (SPA routing)
+GET https://app.seoreporting.com          → dashboard login
+GET https://app.seoreporting.com/dashboard → should NOT 404 (SPA routing)
+GET https://app.seoreporting.com/api/health → { "status": "ok" }
+```
+
+---
+
+## Cron Job (Daily Sync)
+
+Call via scheduler or Vercel Cron:
 
 ```
-GET https://seoranktrackingtool.com          → website homepage
-GET https://app.seoranktrackingtool.com      → dashboard login
-GET https://seoranktrackingtool.com/api/health → { "status": "ok" }
-GET https://app.seoranktrackingtool.com/dashboard → should NOT 404 (SPA routing)
+POST https://app.seoreporting.com/api/cron/daily-sync
+Authorization: Bearer <CRON_SECRET>
 ```
+
+Recommended schedule: `0 2 * * *` (2am UTC daily).
 
 ---
 
@@ -93,32 +103,5 @@ GET https://app.seoranktrackingtool.com/dashboard → should NOT 404 (SPA routin
 
 ```bash
 npm install          # installs root + all workspaces via postinstall
-npm run dev          # starts api (3001), app (5173), website (5174) in parallel
+npm run dev          # starts api (:3001), app (:5173), website (:5174) in parallel
 ```
-
-Or individually:
-
-```bash
-npm run dev:api      # Express on :3001
-npm run dev:app      # Vite dashboard on :5173
-npm run dev:website  # Vite marketing on :5174
-```
-
-Build both SPAs:
-
-```bash
-npm run build        # builds apps/app and apps/website
-```
-
----
-
-## Cron Job (Daily Sync)
-
-Set up in **Settings → Cron Jobs** or call manually:
-
-```
-POST https://seoranktrackingtool.com/api/cron/daily-sync
-Authorization: Bearer <CRON_SECRET>
-```
-
-Recommended schedule: `0 2 * * *` (2am UTC daily).
