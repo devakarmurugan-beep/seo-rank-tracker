@@ -12,7 +12,7 @@
     "build:website": "cd apps/website && npm run build",
     "build": "npm run build:app && npm run build:website",
     "lint": "eslint .",
-    "postinstall": "cd api && npm install"
+    "postinstall": "node scripts/install-workspaces.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

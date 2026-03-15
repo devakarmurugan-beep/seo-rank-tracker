@@ -1,44 +1,40 @@
 {
   "version": 2,
-  "outputDirectory": ".",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
+      "src": "apps/website/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
     },
     {
-      "has": [
-        {
-          "type": "host",
-          "value": "app.seoranktrackingtool.com"
-        }
-      ],
-      "source": "/(.*)",
-      "destination": "/apps/app/dist/$1"
+      "src": "apps/app/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
     },
     {
-      "has": [
-        {
-          "type": "host",
-          "value": "seoranktrackingtool.com"
-        }
-      ],
-      "source": "/(.*)",
-      "destination": "/apps/website/dist/$1"
-    },
-    {
-      "has": [
-        {
-          "type": "host",
-          "value": "www.seoranktrackingtool.com"
-        }
-      ],
-      "source": "/(.*)",
-      "destination": "/apps/website/dist/$1"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/apps/website/dist/$1"
+      "src": "api/index.js",
+      "use": "@vercel/node",
+      "config": { "includeFiles": ["api/**"] }
     }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.js" },
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "app.seoranktrackingtool.com" }],
+      "dest": "/apps/app/dist/$1"
+    },
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "seoranktrackingtool.com" }],
+      "dest": "/apps/website/dist/$1"
+    },
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "www.seoranktrackingtool.com" }],
+      "dest": "/apps/website/dist/$1"
+    },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/apps/website/dist/index.html" }
   ]
 }
