@@ -1,15 +1,43 @@
 {
-  "framework": "vite",
-  "installCommand": "npm install && cd api && npm install",
-  "buildCommand": "npm run build",
+  "version": 2,
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     },
     {
+      "has": [
+        {
+          "type": "host",
+          "value": "app.seoranktrackingtool.com"
+        }
+      ],
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/apps/app/dist/$1"
+    },
+    {
+      "has": [
+        {
+          "type": "host",
+          "value": "seoranktrackingtool.com"
+        }
+      ],
+      "source": "/(.*)",
+      "destination": "/apps/website/dist/$1"
+    },
+    {
+      "has": [
+        {
+          "type": "host",
+          "value": "www.seoranktrackingtool.com"
+        }
+      ],
+      "source": "/(.*)",
+      "destination": "/apps/website/dist/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/apps/website/dist/$1"
     }
   ]
 }

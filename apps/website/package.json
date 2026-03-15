@@ -1,28 +1,21 @@
 {
-  "name": "project-seo-rank-tracking-tool",
+  "name": "project-seo-rank-tracking-tool-website",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev:app": "cd apps/app && npm run dev",
-    "dev:website": "cd apps/website && npm run dev",
-    "dev:api": "cd api && npm run dev",
-    "dev": "npm run dev:api & npm run dev:app & npm run dev:website",
-    "build:app": "cd apps/app && npm run build",
-    "build:website": "cd apps/website && npm run build",
-    "build": "npm run build:app && npm run build:website",
+    "dev": "vite",
+    "build": "vite build",
     "lint": "eslint .",
-    "postinstall": "cd api && npm install"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
     "@tailwindcss/vite": "^4.2.0",
-    "dodopayments": "^2.20.0",
     "lucide-react": "^0.575.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.13.0",
-    "recharts": "^3.7.0",
     "tailwindcss": "^4.2.0"
   },
   "devDependencies": {
