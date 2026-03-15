@@ -9,19 +9,15 @@ Single Vercel project serving:
 
 ## How It Works
 
-Vercel uses the `builds` section in `vercel.json` to build each piece independently:
+All traffic is handled by a single `@vercel/node` serverless function wrapping the Express app (`api/index.js`).
 
-| Builder | Source | What it does |
-|---------|--------|--------------|
-| `@vercel/static-build` | `apps/app/package.json` | Runs `npm install` + `npm run build` → serves `dist/` |
-| `@vercel/static-build` | `apps/website/package.json` | Runs `npm install` + `npm run build` → serves `dist/` |
-| `@vercel/node` | `api/index.js` | Bundles Express app as a serverless function |
+- **API routes** (`/api/*`) are handled by Express route handlers.
+- **Static files** are served by Express based on the `host` header:
+  - `app.seoranktrackingtool.com` → serves `apps/app/dist/`
+  - everything else → serves `apps/website/dist/`
+- **SPA fallback**: any path not matched by a static file falls through to the SPA's `index.html` so React Router handles client-side routes.
 
-Routing is handled by `routes` in `vercel.json`:
-- `/api/*` → Express serverless function
-- `app.seoranktrackingtool.com/*` → dashboard SPA
-- `seoranktrackingtool.com/*` → website SPA
-- Fallback → website `index.html` (React Router handles client-side routes)
+The `@vercel/node` builder uses `bundle: false` + `includeFiles` to deploy the full file tree (API code + both built SPAs) as one serverless function.
 
 ---
 
@@ -39,9 +35,9 @@ In **Settings → General**, set:
 |---------|-------|
 | Framework Preset | Other |
 | Root Directory | *(leave blank)* |
-| Build Command | *(leave blank — builders handle it)* |
+| Build Command | `npm run build` |
 | Output Directory | *(leave blank)* |
-| Install Command | *(leave blank — builders handle it)* |
+| Install Command | `npm install` |
 
 ### 3. Environment variables
 
