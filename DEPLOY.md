@@ -15,11 +15,10 @@ Two separate Vercel projects from the same repo:
 
 | Setting | Value |
 |---------|-------|
-| Framework Preset | Vite |
+| Framework Preset | Other |
 | Root Directory | `apps/website` |
-| Build Command | `npm run build` |
-| Output Directory | `dist` |
-| Install Command | `npm install` |
+
+> Build command, output directory, and install command are set in `apps/website/vercel.json`.
 
 ### Domains
 
@@ -46,11 +45,8 @@ Add `seoreporting.com` and `www.seoreporting.com` in **Settings → Domains**.
 |---------|-------|
 | Framework Preset | Other |
 | Root Directory | *(leave blank — repo root)* |
-| Build Command | `npm run build:app` |
-| Output Directory | `apps/app/dist` |
-| Install Command | `npm install` |
 
-> `npm install` at root triggers `postinstall` which installs deps in `api/`, `apps/app/`, and `apps/website/`. `npm run build:app` builds only the dashboard SPA.
+> Build command, output directory, and install command are set in `vercel.json` at the repo root.
 
 ### Domains
 
@@ -102,6 +98,6 @@ Recommended schedule: `0 2 * * *` (2am UTC daily).
 ## Local Development
 
 ```bash
-npm install          # installs root + all workspaces via postinstall
+npm install          # installs all workspace deps (api, apps/app, apps/website)
 npm run dev          # starts api (:3001), app (:5173), website (:5174) in parallel
 ```
