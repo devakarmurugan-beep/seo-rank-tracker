@@ -395,10 +395,9 @@ export const fetchPageAnalytics = async (siteId, dateRange = '28d') => {
     try {
         const { startDate, endDate } = getGSCDateRange(dateRange)
 
-        const { data: pages } = await supabase
-            .from('pages')
-            .select('*')
-            .eq('site_id', siteId)
+        const pages = await paginateQuery((from, to) =>
+            supabase.from('pages').select('*').eq('site_id', siteId).range(from, to)
+        )
 
         const history = await paginateQuery((from, to) =>
             supabase

@@ -1,6 +1,6 @@
+import { useState, useMemo } from 'react'
 import { Search, CheckCircle2, AlertTriangle, XCircle, Eye, TrendingUp, Download, MoreHorizontal, FileText, Globe } from 'lucide-react'
 
-/* 5-tier position color */
 const getPositionColor = (pos) => {
     if (pos <= 3) return '#059669'
     if (pos <= 10) return '#0284C7'
@@ -9,8 +9,12 @@ const getPositionColor = (pos) => {
     return '#DC2626'
 }
 
+const PAGE_SIZE = 50
+
 export default function Pages({ activePageCategory, handlePageCategory, pageFilter, handlePageFilter, compact, pageAnalytics = [], isLoadingData }) {
     const cp = compact
+    const [search, setSearch] = useState('')
+    const [page, setPage] = useState(1)
 
     if (isLoadingData) {
         return <div className="flex h-64 items-center justify-center text-[#2563EB]"><div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div></div>
@@ -31,21 +35,40 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
         )
     }
 
-    const filteredPages = pageAnalytics.filter(p => {
-        if (pageFilter === 'All') return true
-        if (pageFilter === 'Performing') return parseFloat(p.clicks) > 0
-        if (pageFilter === 'Zero Impressions') return parseFloat(p.impressions) === 0
-        if (pageFilter === 'Not Indexed') return p.status === 'Not Indexed'
-        return true
-    })
-
     const parseImp = (imp) => {
         if (typeof imp === 'number') return imp
         return parseInt((String(imp || '0')).replace(/[^0-9]/g, '') || '0')
     }
+
+    const filteredPages = useMemo(() => {
+        let result = pageAnalytics
+        if (pageFilter === 'Performing') result = result.filter(p => parseFloat(p.clicks) > 0)
+        else if (pageFilter === 'Zero Impressions') result = result.filter(p => parseImp(p.impressions) === 0)
+        else if (pageFilter === 'Not Indexed') result = result.filter(p => p.status === 'Not Indexed')
+        if (search.trim()) {
+            const q = search.toLowerCase()
+            result = result.filter(p => p.url?.toLowerCase().includes(q) || p.keyword?.toLowerCase().includes(q))
+        }
+        return result
+    }, [pageAnalytics, pageFilter, search])
+
+    const totalPages = Math.max(1, Math.ceil(filteredPages.length / PAGE_SIZE))
+    const currentPage = Math.min(page, totalPages)
+    const paginated = filteredPages.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+    const handleFilterChange = (f) => { handlePageFilter(f); setPage(1) }
+    const handleSearch = (e) => { setSearch(e.target.value); setPage(1) }
+
     const totalImpressionsAll = pageAnalytics.reduce((acc, p) => acc + parseImp(p.impressions), 0)
     const zeroImpCount = pageAnalytics.filter(p => parseImp(p.impressions) === 0).length
     const notIndexedCount = pageAnalytics.filter(p => p.status !== 'Indexed').length
+
+    // Page number buttons: show at most 5 around current
+    const pageNums = []
+    const delta = 2
+    for (let i = Math.max(1, currentPage - delta); i <= Math.min(totalPages, currentPage + delta); i++) {
+        pageNums.push(i)
+    }
 
     return (
         <div>
@@ -67,7 +90,20 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
             </div>
 
             {/* Status Filters + Search */}
-            <div className={`flex items-center justify-between ${cp ? 'mb-3' : 'mb-4'}`}><div className="flex items-center gap-1">{['All', 'Performing', 'Zero Impressions', 'Not Indexed'].map((f) => (<button key={f} onClick={() => handlePageFilter(f)} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium ${pageFilter === f ? 'bg-[#EFF6FF] text-[#2563EB] border border-[#2563EB]/20' : 'text-[#9CA3AF] hover:bg-[#F9FAFB] border border-transparent'}`}>{f}</button>))}</div><div className="flex items-center gap-3"><div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" /><input type="text" placeholder="Search pages..." className="pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 w-[260px]" /></div><button className="p-2 border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] hover:border-[#D1D5DB]"><Download className="w-4 h-4 text-[#4B5563]" /></button></div></div>
+            <div className={`flex items-center justify-between ${cp ? 'mb-3' : 'mb-4'}`}>
+                <div className="flex items-center gap-1">
+                    {['All', 'Performing', 'Zero Impressions', 'Not Indexed'].map((f) => (
+                        <button key={f} onClick={() => handleFilterChange(f)} className={`px-3 py-1.5 rounded-lg text-[12px] font-medium ${pageFilter === f ? 'bg-[#EFF6FF] text-[#2563EB] border border-[#2563EB]/20' : 'text-[#9CA3AF] hover:bg-[#F9FAFB] border border-transparent'}`}>{f}</button>
+                    ))}
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+                        <input type="text" value={search} onChange={handleSearch} placeholder="Search pages..." className="pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 w-[260px]" />
+                    </div>
+                    <button className="p-2 border border-[#E5E7EB] rounded-lg hover:bg-[#F9FAFB] hover:border-[#D1D5DB]"><Download className="w-4 h-4 text-[#4B5563]" /></button>
+                </div>
+            </div>
 
             {/* Pages Table */}
             <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
@@ -83,7 +119,7 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
                         <th className={`text-right px-4 ${cp ? 'py-2' : 'py-3'} text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wider`}>Updated</th>
                         <th className={`px-4 ${cp ? 'py-2' : 'py-3'}`}></th>
                     </tr></thead>
-                    <tbody>{filteredPages.map((page, i) => (
+                    <tbody>{paginated.map((page, i) => (
                         <tr key={i} className="border-b border-[#F3F4F6] cursor-pointer hover:bg-[#F9FAFB]">
                             <td className={`px-4 ${cp ? 'py-2.5' : 'py-3.5'}`}><p className="text-[13px] font-medium text-[#111827] truncate max-w-[240px]">{page.title}</p><span className="text-[11px] text-[#9CA3AF] font-normal">{page.url}</span></td>
                             <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-3.5'}`}><span className={`text-[11px] font-medium px-2 py-1 rounded-md ${page.status === 'Indexed' ? 'bg-[#DCFCE7] text-[#14532D]' : page.status === 'Not Indexed' ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#FEF3C7] text-[#92400E]'}`}>{page.status}</span></td>
@@ -97,11 +133,15 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
                         </tr>))}</tbody>
                 </table>
                 <div className="flex items-center justify-between px-4 py-3 border-t border-[#E5E7EB]">
-                    <span className="text-[11px] text-[#9CA3AF] font-normal tabular-nums">Showing {filteredPages.length} pages</span>
+                    <span className="text-[11px] text-[#9CA3AF] font-normal tabular-nums">
+                        Showing {filteredPages.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredPages.length)} of {filteredPages.length} pages
+                    </span>
                     <div className="flex items-center gap-1">
-                        <button className="px-3 py-1.5 text-[12px] font-medium text-[#4B5563] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB] hover:border-[#D1D5DB]">Previous</button>
-                        <button className="px-3 py-1.5 text-[12px] font-medium bg-[#2563EB] text-white rounded-md tabular-nums">1</button>
-                        <button className="px-3 py-1.5 text-[12px] font-medium text-[#4B5563] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB]">Next</button>
+                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1.5 text-[12px] font-medium text-[#4B5563] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB] hover:border-[#D1D5DB] disabled:opacity-40 disabled:cursor-not-allowed">Previous</button>
+                        {pageNums.map(n => (
+                            <button key={n} onClick={() => setPage(n)} className={`px-3 py-1.5 text-[12px] font-medium rounded-md tabular-nums ${n === currentPage ? 'bg-[#2563EB] text-white' : 'text-[#4B5563] border border-[#E5E7EB] hover:bg-[#F9FAFB]'}`}>{n}</button>
+                        ))}
+                        <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1.5 text-[12px] font-medium text-[#4B5563] border border-[#E5E7EB] rounded-md hover:bg-[#F9FAFB] hover:border-[#D1D5DB] disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
                     </div>
                 </div>
             </div>
