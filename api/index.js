@@ -421,7 +421,18 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
         }
     }
 
-    // 5. Process History Snapshots (ONLY for already tracked keywords to save 95% space)
+    // 5. Process History Snapshots
+    // On initial sync (last_synced_at is null): write history for ALL keywords so dashboard/pages
+    // work immediately without requiring the user to manually track keywords first.
+    // On subsequent syncs: only write history for tracked keywords to save space.
+    const { data: siteRow } = await getSupabaseAdmin()
+        .from('sites')
+        .select('last_synced_at')
+        .eq('id', siteId)
+        .single()
+
+    const isInitialSync = !siteRow?.last_synced_at
+
     const { data: alreadyTracked } = await getSupabaseAdmin()
         .from('keywords')
         .select('id')
@@ -433,7 +444,9 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
     const historyMap = {}
     allHistory.forEach(row => {
         const kwId = kwLookup[row.keyword.toLowerCase()]
-        if (!kwId || !trackedIdsSet.has(kwId)) return
+        if (!kwId) return
+        // On initial sync write all; afterwards only tracked keywords
+        if (!isInitialSync && !trackedIdsSet.has(kwId)) return
         const key = `${kwId}|${row.date}`
         if (!historyMap[key]) {
             historyMap[key] = {

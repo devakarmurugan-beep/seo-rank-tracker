@@ -282,7 +282,7 @@ export const fetchUserSites = async (userId) => {
     try {
         const { data: sites, error } = await supabase
             .from('sites')
-            .select('id, property_url, site_name')
+            .select('id, property_url, site_name, last_synced_at')
             .eq('user_id', userId)
         if (error) throw error
         return sites || []
