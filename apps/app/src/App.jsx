@@ -116,6 +116,7 @@ function App() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user?.id) return
 
+    setIsLoadingData(true)
     try {
       const apiUrl = getApiUrl()
       const response = await fetch(`${apiUrl}/api/user/sync-site-data`, {
@@ -129,10 +130,16 @@ function App() {
       if (!response.ok) throw new Error(`Sync API error ${response.status}`)
       const result = await response.json()
       if (result.success) {
-        await loadSiteData(site)
+        // Refresh sites to pick up the updated last_synced_at timestamp
+        const sites = await loadUserInfo()
+        const refreshedSite = sites.find(s => s.id === site.id) || site
+        setActiveSite(refreshedSite)
+        await loadSiteData(refreshedSite)
       }
     } catch (error) {
       console.error("Error syncing site data:", error)
+    } finally {
+      setIsLoadingData(false)
     }
   }
 
