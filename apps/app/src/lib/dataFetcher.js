@@ -411,8 +411,6 @@ export const fetchPageAnalytics = async (siteId, dateRange = '28d') => {
                 .range(from, to)
         )
 
-        if (!history || history.length === 0) return []
-
         return (pages || []).map(p => {
             const pH         = history.filter(h => h.page_url === p.page_url)
             const totalImp   = pH.reduce((acc, h) => acc + h.impressions, 0)

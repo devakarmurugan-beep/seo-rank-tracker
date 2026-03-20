@@ -491,11 +491,14 @@ const performSiteSync = async (userId, siteId, brandVariations = [], daysToFetch
         }
     }
 
-    // 5. Update Pages Metadata
+    // 5. Update Pages Metadata (chunked to stay under Supabase's 1000-row limit)
     const pages = Array.from(allPages)
     if (pages.length > 0) {
         const pagesPayload = pages.map(url => ({ site_id: siteId, page_url: url }))
-        await getSupabaseAdmin().from('pages').upsert(pagesPayload, { onConflict: 'site_id, page_url' })
+        const PAGE_CHUNK = 500
+        for (let i = 0; i < pagesPayload.length; i += PAGE_CHUNK) {
+            await getSupabaseAdmin().from('pages').upsert(pagesPayload.slice(i, i + PAGE_CHUNK), { onConflict: 'site_id, page_url' })
+        }
     }
 
     // ═══ CRITICAL: Update last_synced_at timestamp ═══
