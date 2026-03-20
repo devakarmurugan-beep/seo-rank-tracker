@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Info, Plus, Sparkles, Target, Tag, X, Check, MoreHorizontal, ChevronRight, Globe, BarChart3, Upload, Loader2, Palette, FolderOpen, Trash2, ShoppingBag, ChevronDown, MapPin, ArrowLeft, ChevronUp, ArrowUpDown } from 'lucide-react'
 import { allGSCKeywords, trackingKeywords, categoryCards } from './data'
 import { supabase } from './lib/supabase'
+import { getGSCDateRange } from './lib/dateUtils'
 
 
 
@@ -17,6 +18,14 @@ const getPositionColor = (pos) => {
 
 const getApiUrl = () => {
     return import.meta.env.VITE_API_URL || ''
+}
+
+const getAuthHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+    }
 }
 
 /* 5-tier bucket badge */
@@ -358,7 +367,10 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
         try {
             const encodedRange = encodeURIComponent(typeof dateRange === 'object' ? JSON.stringify(dateRange) : dateRange)
             const apiUrl = getApiUrl()
-            const response = await fetch(`${apiUrl}/api/gsc/locations?siteId=${activeSite.id}&dateRange=${encodedRange}&trial=${isTrial}`)
+            const response = await fetch(`${apiUrl}/api/gsc/locations?siteId=${activeSite.id}&dateRange=${encodedRange}&trial=${isTrial}`, {
+                headers: await getAuthHeaders()
+            })
+            if (!response.ok) throw new Error(`API error ${response.status}`)
             const data = await response.json()
             if (data.success) {
                 setLocations(data.locations)
@@ -447,12 +459,13 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             const apiUrl = getApiUrl()
             const response = await fetch(`${apiUrl}/api/keywords/track`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify({
                     siteId: activeSite?.id,
                     keywords: [{ keyword: kw.keyword, category: categoryName, expected_url: kw.page || null }]
                 })
             })
+            if (!response.ok) throw new Error(`API error ${response.status}`)
             const result = await response.json()
             if (result.success) {
                 if (setHasTrackingData) setHasTrackingData(true)
@@ -488,7 +501,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             const apiUrl = getApiUrl()
             const response = await fetch(`${apiUrl}/api/keywords/track`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify({
                     siteId: activeSite.id,
                     keywords: keywordsToTrack.map(kw => ({
@@ -499,6 +512,7 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                     overwrite: false
                 })
             })
+            if (!response.ok) throw new Error(`API error ${response.status}`)
             const result = await response.json()
             if (result.success) {
                 if (setHasTrackingData) setHasTrackingData(true)
@@ -533,9 +547,10 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             const apiUrl = getApiUrl()
             const response = await fetch(`${apiUrl}/api/keywords/untrack`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify({ siteId: activeSite.id, keyword })
             })
+            if (!response.ok) throw new Error(`API error ${response.status}`)
             const result = await response.json()
             if (result.success && refreshData) {
                 // Background refresh without spinner
@@ -616,9 +631,10 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
             const apiUrl = getApiUrl()
             const response = await fetch(`${apiUrl}/api/keywords/track`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify({ siteId: activeSite.id, keywords: keywordsToAdd, overwrite: replaceTracking })
             })
+            if (!response.ok) throw new Error(`API error ${response.status}`)
             const result = await response.json()
             if (result.success) {
                 setSaveSuccess(`${result.count} keyword${result.count > 1 ? 's' : ''} added to tracking!`)
@@ -643,10 +659,12 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     let baseAllKeywords = trackedKeywords || [];
 
     let filteredGSC = posFilter === 'All' ? baseAllKeywords : baseAllKeywords.filter((kw) => {
-        if (posFilter === 'Top 3') return kw.position <= 3
-        if (posFilter === '4-10') return kw.position > 3 && kw.position <= 10
-        if (posFilter === '11-20') return kw.position > 10 && kw.position <= 20
-        return kw.position > 20
+        const pos = typeof kw.position === 'number' ? kw.position : null
+        if (pos === null) return false // N/R keywords excluded from position filters
+        if (posFilter === 'Top 3') return pos <= 3
+        if (posFilter === '4-10') return pos > 3 && pos <= 10
+        if (posFilter === '11-20') return pos > 10 && pos <= 20
+        return pos > 20
     })
 
     if (allKwSearch.trim()) {
@@ -707,18 +725,9 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
     // Calculate Matrix Columns (Oldest to Newest, spaced by Interval)
     let matrixDates = []
     if (trackingViewMode === 'matrix') {
-        let dEnd = new Date()
-        let dStart = new Date()
-
-        if (typeof dateRange === 'object' && dateRange.type === 'custom') {
-            const [sy, sm, sd] = dateRange.start.split('-')
-            dStart = new Date(sy, sm - 1, sd)
-            const [ey, em, ed] = dateRange.end.split('-')
-            dEnd = new Date(ey, em - 1, ed)
-        } else {
-            const rangeDays = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : dateRange === '1y' ? 365 : 480
-            dStart.setDate(dEnd.getDate() - rangeDays)
-        }
+        const { startDate: gscStart, endDate: gscEnd } = getGSCDateRange(dateRange)
+        let dStart = new Date(gscStart)
+        let dEnd = new Date(gscEnd)
 
         const tempDates = []
         let current = new Date(dEnd.getTime())

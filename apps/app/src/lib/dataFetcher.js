@@ -271,7 +271,7 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
         })
     } catch (error) {
         console.error('fetchTrackedKeywordsWithHistory FAILED:', error)
-        return []
+        return { data: [], error: error.message }
     }
 }
 

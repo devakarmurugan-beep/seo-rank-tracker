@@ -31,6 +31,7 @@ CREATE TABLE public.sites (
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     property_url TEXT NOT NULL, -- e.g., 'sc-domain:example.com' or 'https://example.com/'
     site_name TEXT NOT NULL, -- Display name (e.g., 'Example Corp')
+    last_synced_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -70,6 +71,7 @@ CREATE TABLE public.keyword_history (
     impressions INTEGER,
     clicks INTEGER,
     ctr NUMERIC(5,4),
+    page_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(keyword_id, date)
 );
@@ -96,3 +98,27 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_user_connections_modtime
 BEFORE UPDATE ON public.user_connections
 FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+
+-- 6. KEYWORD CACHE TABLE
+-- Aggregated 90-day snapshot per keyword for fast queries (trial & discovery views).
+CREATE TABLE IF NOT EXISTS public.keyword_cache (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    site_id UUID REFERENCES public.sites(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    keyword TEXT NOT NULL,
+    avg_pos NUMERIC(5,2),
+    total_impressions INTEGER,
+    total_clicks INTEGER,
+    last_synced TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(site_id, keyword)
+);
+
+ALTER TABLE public.keyword_cache ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can read own keyword cache" ON public.keyword_cache FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can modify own keyword cache" ON public.keyword_cache FOR ALL USING (auth.uid() = user_id);
+
+-- 7. PERFORMANCE INDEXES
+CREATE INDEX IF NOT EXISTS idx_sites_user_id ON public.sites (user_id);
+CREATE INDEX IF NOT EXISTS idx_keywords_site_id ON public.keywords (site_id);
+CREATE INDEX IF NOT EXISTS idx_kh_keyword_date ON public.keyword_history (keyword_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_kh_date ON public.keyword_history (date);

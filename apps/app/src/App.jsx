@@ -63,7 +63,11 @@ function App() {
       const { fetchTrackedKeywordsWithHistory, fetchTotalPagesCount, fetchIntentDistribution, fetchPageAnalytics, fetchTrialKeywords } = await import('./lib/dataFetcher')
 
       let keywords = [];
-      const dbTracked = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
+      const dbTrackedResult = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
+      const dbTracked = Array.isArray(dbTrackedResult) ? dbTrackedResult : (dbTrackedResult?.data || []);
+      if (!Array.isArray(dbTrackedResult) && dbTrackedResult?.error) {
+        console.error('[App] Failed to load keywords:', dbTrackedResult.error)
+      }
 
       if (isTrial) {
         // Discovery for trial users (only shown in All Keywords tab)
@@ -116,9 +120,13 @@ function App() {
       const apiUrl = getApiUrl()
       const response = await fetch(`${apiUrl}/api/user/sync-site-data`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({ userId: session.user.id, siteId: site.id, brandVariations: [site.site_name] })
       })
+      if (!response.ok) throw new Error(`Sync API error ${response.status}`)
       const result = await response.json()
       if (result.success) {
         await loadSiteData(site)

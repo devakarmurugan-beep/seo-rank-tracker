@@ -20,9 +20,13 @@ export default function AdminDashboard() {
         try {
             const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/admin/users`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify({ adminId: session?.user?.id })
             })
+            if (!response.ok) throw new Error(`API error ${response.status}`)
             const data = await response.json()
             if (data.success) {
                 setUsers(data.users)
@@ -51,6 +55,7 @@ export default function AdminDashboard() {
                     updates: { plan: newPlan }
                 })
             })
+            if (!response.ok) throw new Error(`API error ${response.status}`)
             const data = await response.json()
             if (data.success) {
                 setStatusMsg({ type: 'success', text: `Plan updated to ${newPlan}` })

@@ -3,12 +3,19 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "workspaces": ["api", "apps/app", "apps/website"],
+  "workspaces": [
+    "api",
+    "apps/app",
+    "apps/website"
+  ],
   "scripts": {
-    "dev": "npm run dev:api & npm run dev:app & npm run dev:website",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:app\" \"npm run dev:website\"",
     "dev:api": "npm run dev -w api",
     "dev:app": "npm run dev -w apps/app",
     "dev:website": "npm run dev -w apps/website",
     "build:app": "npm run build -w apps/app"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

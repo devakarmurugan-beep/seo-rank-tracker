@@ -29,6 +29,14 @@ const getApiUrl = () => {
     return import.meta.env.VITE_API_URL || ''
 }
 
+const getAuthHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+    }
+}
+
 /**
  * Retrieves the available GSC sites from the backend without auto-saving them to the DB.
  */
@@ -38,9 +46,10 @@ export async function fetchAvailableGSCSites(userId) {
         const timestamp = new Date().getTime();
         const response = await fetch(`${apiUrl}/api/user/available-sites?t=${timestamp}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({ userId })
         })
+        if (!response.ok) throw new Error(`API error ${response.status}`)
         const data = await response.json()
         return data
     } catch (error) {
@@ -57,9 +66,10 @@ export async function addProjectSite(userId, property_url, site_name) {
         const apiUrl = getApiUrl()
         const response = await fetch(`${apiUrl}/api/user/add-site`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({ userId, property_url, site_name })
         })
+        if (!response.ok) throw new Error(`API error ${response.status}`)
         const data = await response.json()
         return data
     } catch (error) {
@@ -89,9 +99,10 @@ export async function createSubscription(userId, userEmail, planId) {
         const apiUrl = getApiUrl()
         const response = await fetch(`${apiUrl}/api/payments/create-checkout`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({ userId, userEmail, planId })
         })
+        if (!response.ok) throw new Error(`API error ${response.status}`)
         const data = await response.json()
         return data
     } catch (error) {

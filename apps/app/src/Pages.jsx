@@ -39,8 +39,12 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
         return true
     })
 
-    const totalImpressionsAll = pageAnalytics.reduce((acc, p) => acc + parseInt(p.impressions.replace(/,/g, '') || 0), 0)
-    const zeroImpCount = pageAnalytics.filter(p => parseInt(p.impressions.replace(/,/g, '') || 0) === 0).length
+    const parseImp = (imp) => {
+        if (typeof imp === 'number') return imp
+        return parseInt((String(imp || '0')).replace(/[^0-9]/g, '') || '0')
+    }
+    const totalImpressionsAll = pageAnalytics.reduce((acc, p) => acc + parseImp(p.impressions), 0)
+    const zeroImpCount = pageAnalytics.filter(p => parseImp(p.impressions) === 0).length
     const notIndexedCount = pageAnalytics.filter(p => p.status !== 'Indexed').length
 
     return (
@@ -48,10 +52,10 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
             {/* Metric Cards */}
             <div className={`grid grid-cols-4 gap-5 ${cp ? 'mb-4' : 'mb-8'}`}>
                 {[
-                    { label: 'PAGES INDEXED', value: pageAnalytics.length.toLocaleString(), change: '+3.2%', positive: true, icon: CheckCircle2, iconColor: '#059669', iconBg: '#ECFDF5' },
+                    { label: 'PAGES INDEXED', value: pageAnalytics.length.toLocaleString(), icon: CheckCircle2, iconColor: '#059669', iconBg: '#ECFDF5' },
                     { label: '0 IMPRESSIONS', value: zeroImpCount.toLocaleString(), change: 'Check technicals', icon: AlertTriangle, iconColor: '#D97706', iconBg: '#FFFBEB', isWarning: true },
                     { label: 'NOT INDEXED', value: notIndexedCount.toLocaleString(), change: 'Fix errors', icon: XCircle, iconColor: '#DC2626', iconBg: '#FEF2F2', isError: true },
-                    { label: 'TOTAL IMP.', value: totalImpressionsAll.toLocaleString(), change: '+8.1%', positive: true, icon: Eye, iconColor: '#0284C7', iconBg: '#F0F9FF' }
+                    { label: 'TOTAL IMP.', value: totalImpressionsAll.toLocaleString(), icon: Eye, iconColor: '#0284C7', iconBg: '#F0F9FF' }
                 ].map((card, i) => {
                     const CI = card.icon; return (
                         <div key={i} className={`bg-white rounded-xl ${cp ? 'p-4' : 'p-5'} border border-[#E5E7EB] hover:border-[#D1D5DB] transition-all`} style={{ boxShadow: 'var(--shadow-sm)' }}>
