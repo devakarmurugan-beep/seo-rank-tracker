@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Search, CheckCircle2, AlertTriangle, XCircle, Eye, TrendingUp, Download, MoreHorizontal, FileText, Globe } from 'lucide-react'
+import { Search, CheckCircle2, AlertTriangle, XCircle, Eye, TrendingUp, Download, MoreHorizontal, FileText, Globe, Smartphone, Star, ChevronDown } from 'lucide-react'
 
 const getPositionColor = (pos) => {
     if (pos <= 3) return '#059669'
@@ -11,10 +11,11 @@ const getPositionColor = (pos) => {
 
 const PAGE_SIZE = 50
 
-export default function Pages({ activePageCategory, handlePageCategory, pageFilter, handlePageFilter, compact, pageAnalytics = [], isLoadingData }) {
+export default function Pages({ activePageCategory, handlePageCategory, pageFilter, handlePageFilter, compact, pageAnalytics = [], isLoadingData, sitemapStats = [] }) {
     const cp = compact
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
+    const [hostnameFilter, setHostnameFilter] = useState('All')
 
     if (isLoadingData) {
         return <div className="flex h-64 items-center justify-center text-[#2563EB]"><div className="w-8 h-8 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div></div>
@@ -40,8 +41,15 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
         return parseInt((String(imp || '0')).replace(/[^0-9]/g, '') || '0')
     }
 
+    // Extract unique hostnames for the filter dropdown
+    const hostnames = useMemo(() => {
+        const set = new Set(pageAnalytics.map(p => p.hostname).filter(Boolean))
+        return Array.from(set).sort()
+    }, [pageAnalytics])
+
     const filteredPages = useMemo(() => {
         let result = pageAnalytics
+        if (hostnameFilter !== 'All') result = result.filter(p => p.hostname === hostnameFilter)
         if (pageFilter === 'Performing') result = result.filter(p => parseFloat(p.clicks) > 0)
         else if (pageFilter === 'Zero Impressions') result = result.filter(p => parseImp(p.impressions) === 0)
         else if (pageFilter === 'Not Indexed') result = result.filter(p => p.status === 'Not Indexed')
@@ -50,7 +58,18 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
             result = result.filter(p => p.url?.toLowerCase().includes(q) || p.keyword?.toLowerCase().includes(q))
         }
         return result
-    }, [pageAnalytics, pageFilter, search])
+    }, [pageAnalytics, pageFilter, search, hostnameFilter])
+
+    // Sitemap totals
+    const sitemapTotals = useMemo(() => {
+        if (!sitemapStats || sitemapStats.length === 0) return null
+        return {
+            submitted: sitemapStats.reduce((a, s) => a + (s.urls_submitted || 0), 0),
+            indexed: sitemapStats.reduce((a, s) => a + (s.urls_indexed || 0), 0),
+            errors: sitemapStats.reduce((a, s) => a + (s.errors || 0), 0),
+            count: sitemapStats.length
+        }
+    }, [sitemapStats])
 
     const totalPages = Math.max(1, Math.ceil(filteredPages.length / PAGE_SIZE))
     const currentPage = Math.min(page, totalPages)
@@ -61,7 +80,7 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
 
     const totalImpressionsAll = pageAnalytics.reduce((acc, p) => acc + parseImp(p.impressions), 0)
     const zeroImpCount = pageAnalytics.filter(p => parseImp(p.impressions) === 0).length
-    const notIndexedCount = pageAnalytics.filter(p => p.status !== 'Indexed').length
+    const notIndexedCount = pageAnalytics.filter(p => p.status === 'Not Indexed').length
 
     // Page number buttons: show at most 5 around current
     const pageNums = []
@@ -75,9 +94,9 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
             {/* Metric Cards */}
             <div className={`grid grid-cols-4 gap-5 ${cp ? 'mb-4' : 'mb-8'}`}>
                 {[
-                    { label: 'PAGES INDEXED', value: pageAnalytics.length.toLocaleString(), icon: CheckCircle2, iconColor: '#059669', iconBg: '#ECFDF5' },
+                    { label: 'PAGES INDEXED', value: pageAnalytics.length.toLocaleString(), change: sitemapTotals ? `${sitemapTotals.indexed}/${sitemapTotals.submitted} in sitemaps` : undefined, icon: CheckCircle2, iconColor: '#059669', iconBg: '#ECFDF5' },
                     { label: '0 IMPRESSIONS', value: zeroImpCount.toLocaleString(), change: 'Check technicals', icon: AlertTriangle, iconColor: '#D97706', iconBg: '#FFFBEB', isWarning: true },
-                    { label: 'NOT INDEXED', value: notIndexedCount.toLocaleString(), change: 'Fix errors', icon: XCircle, iconColor: '#DC2626', iconBg: '#FEF2F2', isError: true },
+                    { label: 'NOT INDEXED', value: notIndexedCount.toLocaleString(), change: sitemapTotals?.errors > 0 ? `${sitemapTotals.errors} sitemap errors` : 'Fix errors', icon: XCircle, iconColor: '#DC2626', iconBg: '#FEF2F2', isError: true },
                     { label: 'TOTAL IMP.', value: totalImpressionsAll.toLocaleString(), icon: Eye, iconColor: '#0284C7', iconBg: '#F0F9FF' }
                 ].map((card, i) => {
                     const CI = card.icon; return (
@@ -97,6 +116,15 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
                     ))}
                 </div>
                 <div className="flex items-center gap-3">
+                    {hostnames.length > 1 && (
+                        <div className="relative">
+                            <select value={hostnameFilter} onChange={(e) => { setHostnameFilter(e.target.value); setPage(1) }} className="appearance-none pl-3 pr-8 py-2 border border-[#E5E7EB] rounded-lg text-[12px] font-medium text-[#4B5563] bg-white focus:outline-none focus:border-[#2563EB] cursor-pointer">
+                                <option value="All">All subdomains</option>
+                                {hostnames.map(h => <option key={h} value={h}>{h}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9CA3AF] pointer-events-none" />
+                        </div>
+                    )}
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
                         <input type="text" value={search} onChange={handleSearch} placeholder="Search pages..." className="pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg text-[13px] font-normal placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]/20 w-[260px]" />
@@ -122,7 +150,13 @@ export default function Pages({ activePageCategory, handlePageCategory, pageFilt
                     <tbody>{paginated.map((page, i) => (
                         <tr key={i} className="border-b border-[#F3F4F6] cursor-pointer hover:bg-[#F9FAFB]">
                             <td className={`px-4 ${cp ? 'py-2.5' : 'py-3.5'}`}><p className="text-[13px] font-medium text-[#111827] truncate max-w-[240px]">{page.title}</p><span className="text-[11px] text-[#9CA3AF] font-normal">{page.url}</span></td>
-                            <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-3.5'}`}><span className={`text-[11px] font-medium px-2 py-1 rounded-md ${page.status === 'Indexed' ? 'bg-[#DCFCE7] text-[#14532D]' : page.status === 'Not Indexed' ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#FEF3C7] text-[#92400E]'}`}>{page.status}</span></td>
+                            <td className={`text-center px-4 ${cp ? 'py-2.5' : 'py-3.5'}`}>
+                                <div className="flex items-center justify-center gap-1.5">
+                                    <span className={`text-[11px] font-medium px-2 py-1 rounded-md ${page.status === 'Indexed' ? 'bg-[#DCFCE7] text-[#14532D]' : page.status === 'Not Indexed' ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#FEF3C7] text-[#92400E]'}`}>{page.status}</span>
+                                    {page.mobileUsability && <span title={`Mobile: ${page.mobileUsability}`}><Smartphone className={`w-3.5 h-3.5 ${page.mobileUsability === 'PASS' ? 'text-[#059669]' : 'text-[#DC2626]'}`} /></span>}
+                                    {page.richResults && <span title={`Rich Results: ${page.richResults}`}><Star className={`w-3.5 h-3.5 ${page.richResults === 'PASS' ? 'text-[#D97706]' : 'text-[#9CA3AF]'}`} /></span>}
+                                </div>
+                            </td>
                             <td className={`px-4 ${cp ? 'py-2.5' : 'py-3.5'}`}>{page.keyword ? (<div className="flex items-center gap-2"><span className="text-[12px] text-[#111827] font-normal">{page.keyword}</span>{page.keyPos && <span className="font-mono-data text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: `${getPositionColor(page.keyPos)}15`, color: getPositionColor(page.keyPos) }}>#{page.keyPos}</span>}</div>) : (<span className="text-[11px] text-[#9CA3AF] italic font-normal">No keyword</span>)}</td>
                             <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-3.5'}`}><span className="table-num font-normal text-[#111827]">{page.impressions}</span></td>
                             <td className={`text-right px-4 ${cp ? 'py-2.5' : 'py-3.5'}`}><span className="table-num font-normal text-[#111827]">{page.clicks}</span></td>

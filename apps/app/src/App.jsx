@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { getGSCDateRange } from './lib/dateUtils'
 import { useAuth } from './AuthContext'
 import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Key, FileText, BarChart3, ChevronDown, Globe, Calendar, Bell, BarChart2, Rows3, Rows4 } from 'lucide-react'
@@ -40,8 +41,12 @@ function App() {
   const [trackedKeywords, setTrackedKeywords] = useState([])
   const [pageAnalytics, setPageAnalytics] = useState([])
   const [totalPages, setTotalPages] = useState(0)
+  const [rankingKeywordsCount, setRankingKeywordsCount] = useState(0)
+  const [indexedPagesCount, setIndexedPagesCount] = useState(0)
   const [intentData, setIntentData] = useState([])
   const [isLoadingData, setIsLoadingData] = useState(true)
+  const [deviceFilter, setDeviceFilter] = useState(null)
+  const [sitemapStats, setSitemapStats] = useState([])
 
   const { session } = useAuth()
   const isTrial = getUserPlan(session?.user) === 'free_trial'
@@ -56,14 +61,16 @@ function App() {
       setIsLoadingData(true)
       setTrackedKeywords([])
       setTotalPages(0)
+      setRankingKeywordsCount(0)
+      setIndexedPagesCount(0)
       setIntentData([])
       setPageAnalytics([])
     }
     try {
-      const { fetchTrackedKeywordsWithHistory, fetchTotalPagesCount, fetchIntentDistribution, fetchPageAnalytics, fetchTrialKeywords } = await import('./lib/dataFetcher')
+      const { fetchTrackedKeywordsWithHistory, fetchTotalPagesCount, fetchIndexedPagesCount, fetchIntentDistribution, fetchPageAnalytics, fetchTrialKeywords, fetchRankingKeywordsCount, fetchSitemapStats } = await import('./lib/dataFetcher')
 
       let keywords = [];
-      const dbTrackedResult = await fetchTrackedKeywordsWithHistory(site.id, currentRange);
+      const dbTrackedResult = await fetchTrackedKeywordsWithHistory(site.id, currentRange, deviceFilter);
       const dbTracked = Array.isArray(dbTrackedResult) ? dbTrackedResult : (dbTrackedResult?.data || []);
       if (!Array.isArray(dbTrackedResult) && dbTrackedResult?.error) {
         console.error('[App] Failed to load keywords:', dbTrackedResult.error)
@@ -86,10 +93,14 @@ function App() {
         keywords = dbTracked;
       }
 
-      const [pagesCount, distribution, pagesAnalytics] = await Promise.all([
+      const { startDate: rangeStart, endDate: rangeEnd } = getGSCDateRange(currentRange)
+      const [pagesCount, indexedCount, distribution, pagesAnalytics, rankingCount, smStats] = await Promise.all([
         fetchTotalPagesCount(site.id),
+        fetchIndexedPagesCount(site.id),
         fetchIntentDistribution(site.id),
-        fetchPageAnalytics(site.id, currentRange)
+        fetchPageAnalytics(site.id, currentRange),
+        fetchRankingKeywordsCount(site.id, rangeStart, rangeEnd),
+        fetchSitemapStats(site.id)
       ])
 
       let finalPagesCount = pagesCount
@@ -102,8 +113,11 @@ function App() {
       const trulyTracked = dbTracked.filter(k => k.is_tracked)
       setHasTrackingData(trulyTracked.length > 0)
       setTotalPages(finalPagesCount)
+      setIndexedPagesCount(indexedCount)
+      setRankingKeywordsCount(rankingCount)
       setIntentData(distribution)
       setPageAnalytics(pagesAnalytics)
+      setSitemapStats(smStats)
     } catch (error) {
       console.error("Error loading site data:", error)
     } finally {
@@ -224,6 +238,13 @@ function App() {
       loadSiteData(activeSite, range)
     }
   }
+
+  // Reload keyword data when device filter changes
+  useEffect(() => {
+    if (activeSite) {
+      loadSiteData(activeSite, dateRange, true)
+    }
+  }, [deviceFilter])
   const handleKwTab = (tab) => { setKwTab(tab); setSelectedCategoryFilter(null) }
   const handlePosFilter = (f) => { setPosFilter(f) }
   const handlePageCategory = (cat) => { setActivePageCategory(cat) }
@@ -279,7 +300,7 @@ function App() {
 
       {/* Authenticated Application Layout */}
       <Route element={<ProtectedRoute><PricingGate><Layout c={compactMode} setCompactMode={setCompactMode} dateRange={dateRange} handleDateRange={handleDateRange} isGscConnected={isGscConnected} userSites={userSites} activeSite={activeSite} setActiveSite={setActiveSite} isLoadingData={isLoadingData} refreshSites={() => loadUserInfo()} syncSiteData={syncSiteData} session={session} isTrial={isTrial} /></PricingGate></ProtectedRoute>}>
-        <Route path="/dashboard" element={<Dashboard CustomTooltip={CustomTooltip} compact={compactMode} dateRange={dateRange} isGscConnected={isGscConnected} handleConnectGSC={handleConnectGSC} isLoadingData={isLoadingData} trackedKeywords={trackedKeywords} userSites={userSites} activeSite={activeSite} totalPages={totalPages} intentData={intentData} syncSiteData={() => syncSiteData(activeSite)} isTrial={isTrial} />} />
+        <Route path="/dashboard" element={<Dashboard CustomTooltip={CustomTooltip} compact={compactMode} dateRange={dateRange} isGscConnected={isGscConnected} handleConnectGSC={handleConnectGSC} isLoadingData={isLoadingData} trackedKeywords={trackedKeywords} userSites={userSites} activeSite={activeSite} totalPages={totalPages} indexedPagesCount={indexedPagesCount} rankingKeywordsCount={rankingKeywordsCount} intentData={intentData} syncSiteData={() => syncSiteData(activeSite)} isTrial={isTrial} />} />
         <Route path="/keywords" element={
           <Keywords
             kwTab={kwTab} handleKwTab={handleKwTab}
@@ -298,6 +319,8 @@ function App() {
             refreshData={(silent = false) => activeSite && loadSiteData(activeSite, dateRange, silent)}
             setTrackedKeywords={setTrackedKeywords}
             isTrial={isTrial}
+            deviceFilter={deviceFilter}
+            setDeviceFilter={setDeviceFilter}
           />
         } />
         <Route path="/pages" element={
@@ -308,6 +331,7 @@ function App() {
             pageAnalytics={pageAnalytics}
             isLoadingData={isLoadingData}
             dateRange={dateRange}
+            sitemapStats={sitemapStats}
           />
         } />
         <Route path="/reports" element={

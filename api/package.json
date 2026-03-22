@@ -18,6 +18,7 @@
     "dodopayments": "^2.20.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "fast-xml-parser": "^5.5.8",
     "googleapis": "^171.4.0",
     "postgres": "^3.4.8"
   }

@@ -56,7 +56,7 @@ npm run start -w api
 
 This is an **npm workspaces monorepo** with three packages:
 
-- `api/` — Express 5 backend, deployed as a Vercel serverless function
+- `api/` — Express 5 backend (modular routes + services), deployed as a Vercel serverless function
 - `apps/app/` — React SPA dashboard (Vite + TailwindCSS 4 + Recharts)
 - `apps/website/` — React marketing site (Vite + TailwindCSS 4)
 
@@ -76,7 +76,7 @@ User → React App (OAuth) → Google Search Console API
 
 **Authentication:** Supabase Auth with Google OAuth. Refresh tokens stored in `user_connections` table. Protected routes handled by `ProtectedRoute.jsx`.
 
-**GSC Data Sync:** `api/services/gscUtility.js` contains `performSiteSync()` which fetches 90-day historical data in 30-day chunks, classifies keyword intent (Navigational/Transactional/Commercial/Informational), and handles GSC's 3-day data delay. Daily incremental sync via `GET /api/cron/daily-sync` (Bearer token protected).
+**GSC Data Sync:** `api/services/syncEngine.js` contains `performSiteSync()` which fetches 90-day historical data in 30-day chunks, classifies keyword intent (Navigational/Transactional/Commercial/Informational), and handles GSC's 3-day data delay. Google API clients live in `api/services/google/` (client.js, gsc.js, intent.js). Daily incremental sync via `GET /api/cron/daily-sync` (Bearer token protected).
 
 **Database (Supabase):**
 - `user_connections` — OAuth tokens

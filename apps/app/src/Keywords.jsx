@@ -110,7 +110,7 @@ const Pagination = ({ totalItems, currentPage, onPageChange, itemsPerPage, setIt
     )
 }
 
-export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, compact, isGscConnected, isLoadingData, trackedKeywords = [], setTrackedKeywords, activeSite, dateRange, refreshData, isTrial }) {
+export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrackingData, setHasTrackingData, posFilter, handlePosFilter, selectedCategoryFilter, handleCategoryCardClick, handleClearCategoryFilter, compact, isGscConnected, isLoadingData, trackedKeywords = [], setTrackedKeywords, activeSite, dateRange, refreshData, isTrial, deviceFilter, setDeviceFilter }) {
     const cp = compact
     const navigate = useNavigate()
 
@@ -845,6 +845,13 @@ export default function Keywords({ kwTab, handleKwTab, handleConnectGSC, hasTrac
                                             <button key={f} onClick={() => handlePosFilter(f)} className={`px-4 py-1.5 rounded-lg text-[12px] font-bold transition-all ${posFilter === f ? 'bg-white text-[#2563EB] shadow-sm' : 'text-[#64748B] hover:text-[#111827]'}`}>{f}</button>
                                         ))}
                                     </div>
+                                    {setDeviceFilter && (
+                                        <div className="flex items-center gap-1.5 p-1 bg-[#F1F5F9] rounded-xl border border-[#E2E8F0]">
+                                            {[{ value: null, label: 'All Devices' }, { value: 'desktop', label: 'Desktop' }, { value: 'mobile', label: 'Mobile' }, { value: 'tablet', label: 'Tablet' }].map((d) => (
+                                                <button key={d.label} onClick={() => setDeviceFilter(d.value)} className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all ${deviceFilter === d.value ? 'bg-white text-[#2563EB] shadow-sm' : 'text-[#64748B] hover:text-[#111827]'}`}>{d.label}</button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <div className="relative group min-w-[280px]">

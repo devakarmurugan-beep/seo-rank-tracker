@@ -1,19 +1,11 @@
 import express from 'express'
 import { DodoPayments } from 'dodopayments'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '../lib/supabase.js'
 
 const router = express.Router()
 
-// Lazy loaders for clients to ensure process.env is populated
 const getDodoClient = () => {
     return new DodoPayments({ bearerToken: process.env.DODO_PAYMENTS_API_KEY || '' });
-}
-
-const getSupabaseAdmin = () => {
-    return createClient(
-        process.env.VITE_SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-    )
 }
 
 

@@ -15,7 +15,7 @@ const getPosBadge = (pos) => {
 // Icon map for distribution chart — defined once here
 const distIcons = { trophy: Trophy, circleCheck: CircleCheck, triangleAlert: TriangleAlert, arrowDown: ArrowDown }
 
-export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, intentData: realIntentData, syncSiteData, isTrial }) {
+export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', isGscConnected, handleConnectGSC, isLoadingData, trackedKeywords = [], userSites = [], activeSite, totalPages, indexedPagesCount = 0, rankingKeywordsCount = 0, intentData: realIntentData, syncSiteData, isTrial }) {
     const location = useLocation()
     const query = new URLSearchParams(location.search)
     const isPaymentSuccess = query.get('payment') === 'success'
@@ -114,10 +114,11 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', i
 
     // Calculate Top Gainers and Losers
     // change > 0 means the keyword improved (lower position number = better rank)
-    const sortedByChange = [...filteredKeywords].sort((a, b) => b.change - a.change)
+    const eligibleKeywords = filteredKeywords.filter(kw => kw.totalImpressions >= 10)
+    const sortedByChange = [...eligibleKeywords].sort((a, b) => b.change - a.change)
     const topGainersDynamic = sortedByChange.filter(kw => kw.change > 0).slice(0, 5)
 
-    const sortedByLosses = [...filteredKeywords].sort((a, b) => a.change - b.change)
+    const sortedByLosses = [...eligibleKeywords].sort((a, b) => a.change - b.change)
     const topLosersDynamic = sortedByLosses.filter(kw => kw.change < 0).slice(0, 5)
 
     // Keyword Distribution — uses rawPosition (the actual numeric position)
@@ -127,13 +128,15 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', i
         { name: 'Rank 1-3', value: 0, color: '#059669', icon: 'trophy', min: 1, max: 3 },
         { name: 'Rank 4-10', value: 0, color: '#0284C7', icon: 'circleCheck', min: 4, max: 10 },
         { name: 'Rank 11-20', value: 0, color: '#D97706', icon: 'triangleAlert', min: 11, max: 20 },
-        { name: 'Rank 20+', value: 0, color: '#DC2626', icon: 'arrowDown', min: 21, max: 999 }
+        { name: 'Rank 21-50', value: 0, color: '#F97316', icon: 'arrowDown', min: 21, max: 50 },
+        { name: 'Rank 51-100', value: 0, color: '#DC2626', icon: 'arrowDown', min: 51, max: 100 }
     ]
 
     filteredKeywords.forEach(kw => {
         // rawPosition is always a number (or 1000 for truly no-data keywords)
         // 1000 is the sentinel "no position" value set in dataFetcher, skip those
-        const pos = typeof kw.rawPosition === 'number' && kw.rawPosition < 999 ? kw.rawPosition : null
+        // Exclude keywords with < 10 impressions (statistically unreliable per GSC)
+        const pos = typeof kw.rawPosition === 'number' && kw.rawPosition < 999 && kw.totalImpressions >= 10 ? kw.rawPosition : null
         if (pos !== null) {
             const dist = distribution.find(d => pos >= d.min && pos <= d.max)
             if (dist) dist.value++
@@ -238,8 +241,8 @@ export default function Dashboard({ CustomTooltip, compact, dateRange = '28d', i
             {/* ═══ PRIMARY: KPI Metric Cards — 36px / 600 ═══ */}
             <div className={`grid grid-cols-4 gap-5 ${cp ? 'mb-4' : 'mb-8'}`}>
                 {[
-                    { label: 'TRACKED KEYWORDS', value: isLoadingData ? '...' : formatNum(totalKeywords), change: '', positive: true, icon: Key, iconColor: '#2563EB', iconBg: '#EFF6FF' },
-                    { label: 'TOTAL PAGES', value: isLoadingData ? '...' : formatNum(totalPages), change: '', positive: true, icon: FileText, iconColor: '#0284C7', iconBg: '#F0F9FF' },
+                    { label: 'RANKING KEYWORDS', value: isLoadingData ? '...' : formatNum(rankingKeywordsCount), change: '', positive: true, icon: Key, iconColor: '#2563EB', iconBg: '#EFF6FF' },
+                    { label: 'TOTAL PAGES', value: isLoadingData ? '...' : formatNum(totalPages), change: indexedPagesCount > 0 ? `${formatNum(indexedPagesCount)} indexed` : '', positive: true, icon: FileText, iconColor: '#0284C7', iconBg: '#F0F9FF' },
                     { label: 'BRAND CLICKS', value: isLoadingData ? '...' : formatNum(brandClicks), change: brandChange !== '0' ? `${parseFloat(brandChange) > 0 ? '+' : ''}${brandChange}%` : '', positive: parseFloat(brandChange) >= 0, icon: MousePointerClick, iconColor: '#059669', iconBg: '#ECFDF5' },
                     { label: 'AVG POSITION', value: isLoadingData ? '...' : avgPosition, change: '', positive: true, icon: Target, iconColor: '#D97706', iconBg: '#FFFBEB' }
                 ].map((card, i) => {

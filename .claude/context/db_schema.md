@@ -55,7 +55,7 @@ UNIQUE(site_id, keyword)
 ---
 
 ### `keyword_history`
-Daily position snapshots.
+Daily position snapshots, per device and search type.
 ```sql
 id          UUID PK
 keyword_id  UUID FK → keywords (NOT NULL)
@@ -65,8 +65,10 @@ impressions INTEGER
 clicks      INTEGER
 ctr         NUMERIC(5,4)
 page_url    TEXT  -- top performing page that day
+search_type TEXT DEFAULT 'web'  -- web, image, video, news
+device      TEXT DEFAULT NULL   -- desktop, mobile, tablet
 created_at  TIMESTAMP
-UNIQUE(keyword_id, date)
+UNIQUE(keyword_id, date, search_type, device)
 ```
 **RLS:** Users access via keyword → site → user chain.
 
@@ -91,13 +93,50 @@ INDEX: (user_id, LOWER(keyword)), (site_id)
 ---
 
 ### `pages`
-Discovered pages from GSC data.
+Discovered pages from GSC data with metrics and inspection results.
 ```sql
-id        UUID PK
-site_id   UUID FK → sites
-page_url  TEXT
-created_at TIMESTAMP
+id                 UUID PK
+site_id            UUID FK → sites
+page_url           TEXT
+hostname           TEXT           -- extracted from page_url (e.g. blog.example.com)
+source             TEXT DEFAULT 'gsc'  -- gsc, sitemap, crawl
+impressions        INTEGER DEFAULT 0
+clicks             INTEGER DEFAULT 0
+ctr                NUMERIC(5,4) DEFAULT 0
+avg_position       NUMERIC(5,2)
+primary_keyword    TEXT
+index_status       TEXT           -- Indexed, Not Indexed, Pending
+index_verdict      TEXT           -- PASS, VERDICT_UNSPECIFIED, etc
+crawl_timestamp    TIMESTAMPTZ
+crawl_status       TEXT           -- pageFetchState from URL Inspection API
+robots_txt_state   TEXT           -- ALLOWED, DISALLOWED, etc
+mobile_usability   TEXT           -- PASS, FAIL
+rich_results_status TEXT          -- PASS, FAIL
+last_inspected_at  TIMESTAMPTZ
+created_at         TIMESTAMP
 UNIQUE(site_id, page_url)
+```
+**RLS:** Users access via site ownership.
+
+---
+
+### `sitemaps`
+Sitemap metadata from GSC Sitemaps API.
+```sql
+id              UUID PK
+site_id         UUID FK → sites (NOT NULL)
+path            TEXT NOT NULL     -- sitemap URL
+is_index        BOOLEAN DEFAULT FALSE
+type            TEXT              -- sitemap type
+last_submitted  TIMESTAMPTZ
+last_downloaded TIMESTAMPTZ
+warnings        BIGINT DEFAULT 0
+errors          BIGINT DEFAULT 0
+urls_submitted  BIGINT DEFAULT 0
+urls_indexed    BIGINT DEFAULT 0
+created_at      TIMESTAMPTZ
+updated_at      TIMESTAMPTZ
+UNIQUE(site_id, path)
 ```
 **RLS:** Users access via site ownership.
 
@@ -120,11 +159,13 @@ async function paginateQuery(queryFn, pageSize = 1000) { ... }
 // Main data loaders
 fetchKeywordCache(siteId)            // keyword_cache table
 fetchKeywordsRegistry(siteId)        // keywords table
-fetchHistoryForIds(ids, start, end)  // keyword_history, 500 IDs per chunk
-fetchTrackedKeywordsWithHistory(siteId, dateRange)
+fetchHistoryForIds(ids, start, end, device)  // keyword_history, 500 IDs per chunk, optional device filter
+fetchTrackedKeywordsWithHistory(siteId, dateRange, device)  // main loader, optional device filter
 fetchTotalPagesCount(siteId)
-fetchIntentDistribution(siteId, dateRange)
-fetchPageAnalytics(siteId, dateRange)
-fetchTrialKeywords(siteId)           // via Express API (trial restriction)
+fetchIndexedPagesCount(siteId)       // pages where index_status = 'Indexed'
+fetchIntentDistribution(siteId)
+fetchPageAnalytics(siteId)           // pages with hostname, mobile usability, rich results
+fetchSitemapStats(siteId)            // sitemaps table (urls submitted/indexed, errors)
+fetchTrialKeywords(siteId)           // from keyword_cache (trial restriction)
 fetchUserSites(userId)               // sites table, returns user's tracked sites
 ```

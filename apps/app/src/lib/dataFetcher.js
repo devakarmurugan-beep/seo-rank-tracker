@@ -67,7 +67,7 @@ const fetchKeywordsRegistry = async (siteId) => {
  * IDs are chunked in groups of 500 to avoid PostgREST .in() URL-length limits.
  * Each chunk is paginated independently.
  */
-const fetchHistoryForIds = async (keywordIds, startDate, endDate) => {
+const fetchHistoryForIds = async (keywordIds, startDate, endDate, device = null) => {
     if (!keywordIds || keywordIds.length === 0) return []
 
     const CHUNK_SIZE = 500
@@ -76,16 +76,16 @@ const fetchHistoryForIds = async (keywordIds, startDate, endDate) => {
     for (let i = 0; i < keywordIds.length; i += CHUNK_SIZE) {
         const chunk = keywordIds.slice(i, i + CHUNK_SIZE)
 
-        const rows = await paginateQuery((from, to) =>
-            supabase
+        const rows = await paginateQuery((from, to) => {
+            let query = supabase
                 .from('keyword_history')
-                .select('keyword_id, date, position, clicks, impressions, ctr, page_url')
+                .select('keyword_id, date, position, clicks, impressions, ctr, page_url, device')
                 .in('keyword_id', chunk)
                 .gte('date', startDate)
                 .lte('date', endDate)
-                .order('date', { ascending: false })
-                .range(from, to)
-        )
+            if (device) query = query.eq('device', device)
+            return query.order('date', { ascending: false }).range(from, to)
+        })
 
         all.push(...rows)
     }
@@ -97,7 +97,7 @@ const fetchHistoryForIds = async (keywordIds, startDate, endDate) => {
  * Main data loader: fetches all keywords plus history-based metrics.
  * Date range is anchored to GSC's real end date (today − 3 days).
  */
-export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d') => {
+export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d', device = null) => {
     try {
         // ── STEP 1: Resolve GSC-accurate date window ──────────────────────────
         const { startDate, endDate } = getGSCDateRange(dateRange)
@@ -130,8 +130,8 @@ export const fetchTrackedKeywordsWithHistory = async (siteId, dateRange = '28d')
         console.log(`[dataFetcher] Tracked: ${trackedIds.length} keywords`)
 
         const [currentHistory, previousHistory] = await Promise.all([
-            fetchHistoryForIds(trackedIds, startDate, endDate),
-            fetchHistoryForIds(trackedIds, prevStartStr, prevEndStr)
+            fetchHistoryForIds(trackedIds, startDate, endDate, device),
+            fetchHistoryForIds(trackedIds, prevStartStr, prevEndStr, device)
         ])
 
         console.log(`[dataFetcher] Current history: ${currentHistory.length} rows, Previous: ${previousHistory.length} rows`)
@@ -293,6 +293,25 @@ export const fetchUserSites = async (userId) => {
 }
 
 /**
+ * Counts distinct keywords that ranked in Google during the given date range.
+ * Queries keyword_history joined to keywords (for site_id filter via RLS).
+ */
+export const fetchRankingKeywordsCount = async (siteId, startDate, endDate) => {
+    try {
+        const { data, error } = await supabase.rpc('ranking_keywords_count', {
+            p_site_id: siteId,
+            p_start: startDate,
+            p_end: endDate
+        })
+        if (error) throw error
+        return data || 0
+    } catch (error) {
+        console.error('fetchRankingKeywordsCount error:', error)
+        return 0
+    }
+}
+
+/**
  * Fetches total count of indexed pages for a site.
  */
 export const fetchTotalPagesCount = async (siteId) => {
@@ -301,6 +320,23 @@ export const fetchTotalPagesCount = async (siteId) => {
             .from('pages')
             .select('*', { count: 'exact', head: true })
             .eq('site_id', siteId)
+        if (error) throw error
+        return count || 0
+    } catch (error) {
+        return 0
+    }
+}
+
+/**
+ * Fetches count of indexed pages for a site.
+ */
+export const fetchIndexedPagesCount = async (siteId) => {
+    try {
+        const { count, error } = await supabase
+            .from('pages')
+            .select('*', { count: 'exact', head: true })
+            .eq('site_id', siteId)
+            .eq('index_status', 'Indexed')
         if (error) throw error
         return count || 0
     } catch (error) {
@@ -389,53 +425,50 @@ export const fetchTrialKeywords = async (siteId) => {
 }
 
 /**
- * Fetches analytics for all indexed pages (paginated history).
+ * Fetches sitemap metadata for a site (urls submitted vs indexed, errors, warnings).
  */
-export const fetchPageAnalytics = async (siteId, dateRange = '28d') => {
+export const fetchSitemapStats = async (siteId) => {
     try {
-        const { startDate, endDate } = getGSCDateRange(dateRange)
+        const { data, error } = await supabase
+            .from('sitemaps')
+            .select('*')
+            .eq('site_id', siteId)
+            .order('urls_submitted', { ascending: false })
+        if (error) throw error
+        return data || []
+    } catch (error) {
+        console.error('fetchSitemapStats error:', error)
+        return []
+    }
+}
 
+/**
+ * Fetches analytics for all pages — metrics are stored directly on the pages table
+ * (populated during sync from GSC's page-dimension query).
+ */
+export const fetchPageAnalytics = async (siteId) => {
+    try {
         const pages = await paginateQuery((from, to) =>
             supabase.from('pages').select('*').eq('site_id', siteId).range(from, to)
         )
 
-        const history = await paginateQuery((from, to) =>
-            supabase
-                .from('keyword_history')
-                .select('*, keywords!inner(keyword, site_id)')
-                .eq('keywords.site_id', siteId)
-                .gte('date', startDate)
-                .lte('date', endDate)
-                .order('date', { ascending: false })
-                .range(from, to)
-        )
-
         return (pages || []).map(p => {
-            const pH         = history.filter(h => h.page_url === p.page_url)
-            const totalImp   = pH.reduce((acc, h) => acc + h.impressions, 0)
-            const totalClick = pH.reduce((acc, h) => acc + h.clicks, 0)
-
-            const kwCounts = {}
-            pH.forEach(h => {
-                const n = h.keywords?.keyword
-                if (n) kwCounts[n] = (kwCounts[n] || 0) + h.clicks
-            })
-            const topKw = Object.entries(kwCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null
-
-            const totalWeight = pH.reduce((acc, h) => acc + (h.impressions || 1), 0)
-            const weightedPos = pH.reduce((acc, h) => acc + (h.position || 0) * (h.impressions || 1), 0)
-            const avgPos      = totalWeight > 0 ? (weightedPos / totalWeight).toFixed(1) : '-'
-
+            const imp = p.impressions || 0
+            const clk = p.clicks || 0
             return {
                 title:       p.page_url.split('/').filter(Boolean).pop() || 'Homepage',
                 url:         p.page_url,
-                status:      'Indexed',
-                keyword:     topKw,
-                keyPos:      pH[0]?.position || null,
-                impressions: totalImp.toLocaleString(),
-                clicks:      totalClick.toLocaleString(),
-                ctr:         totalImp > 0 ? ((totalClick / totalImp) * 100).toFixed(1) + '%' : '0%',
-                avgPos,
+                hostname:    p.hostname || null,
+                status:      p.index_status || 'Pending',
+                keyword:     p.primary_keyword || null,
+                keyPos:      p.avg_position ? parseFloat(p.avg_position) : null,
+                impressions: imp.toLocaleString(),
+                clicks:      clk.toLocaleString(),
+                ctr:         imp > 0 ? ((clk / imp) * 100).toFixed(1) + '%' : '0%',
+                avgPos:      p.avg_position ? parseFloat(p.avg_position).toFixed(1) : '-',
+                mobileUsability:  p.mobile_usability || null,
+                richResults:      p.rich_results_status || null,
+                crawlStatus:      p.crawl_status || null,
                 updated:     'Synced'
             }
         })

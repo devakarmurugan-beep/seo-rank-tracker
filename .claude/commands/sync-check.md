@@ -1,8 +1,11 @@
 Trace and explain the full GSC sync pipeline for this project.
 
 Read the following files and provide a concise walkthrough:
-1. `api/services/gscUtility.js` — auth client, `fetchGSCRankingData()`, `classifyKeywordIntent()`, `performSiteSync()` (if present)
-2. `api/index.js` — the `/api/user/sync-site-data` and `/api/cron/daily-sync` route handlers
+1. `api/services/google/client.js` — OAuth2 client factory
+2. `api/services/google/gsc.js` — `fetchRankingData()`, `fetchSites()`, `fetchSitemapUrls()`, `inspectUrls()`
+3. `api/services/google/intent.js` — `classifyKeywordIntent()`
+4. `api/services/syncEngine.js` — `performSiteSync()` (the core sync logic)
+5. `api/routes/sync.js` — the `/api/user/sync-site-data` and `/api/cron/daily-sync` route handlers
 
 Then summarize:
 - How refresh tokens are used to authenticate with Google
