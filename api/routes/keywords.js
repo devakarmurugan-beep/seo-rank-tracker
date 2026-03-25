@@ -85,13 +85,17 @@ router.post('/sync-specific', async (req, res) => {
                     const historyPayload = history.map(h => ({
                         keyword_id: kw.id,
                         date: h.date,
+                        search_type: h.search_type || 'web',
+                        device: h.device || 'all',
                         position: h.position,
                         impressions: h.impressions,
                         clicks: h.clicks,
                         ctr: h.ctr,
                         page_url: h.page_url
                     }))
-                    await supabase.from('keyword_history').upsert(historyPayload, { onConflict: 'keyword_id, date' })
+                    await supabase.from('keyword_history').upsert(historyPayload, {
+                        onConflict: 'keyword_id, date, search_type, device'
+                    })
                     syncResults.push({ id: kw.id, keyword: kw.keyword, status: 'synced', records: history.length })
                 }
             } catch (kwErr) {

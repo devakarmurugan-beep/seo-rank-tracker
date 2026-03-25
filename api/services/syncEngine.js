@@ -7,6 +7,22 @@ import { classifyKeywordIntent } from './google/intent.js'
 const DAY_MS = 24 * 60 * 60 * 1000
 const CHUNK_SIZE = 500
 
+const buildConflictHint = (table, conflict, error) => {
+    if (!error?.message?.includes('no unique or exclusion constraint matching the ON CONFLICT specification')) {
+        return error
+    }
+
+    if (table === 'keyword_history' && conflict === 'keyword_id, date, search_type, device') {
+        return new Error(
+            'Database schema is missing the unique constraint for keyword_history(keyword_id, date, search_type, device). Run api/migrations/007_search_type_and_inspection.sql or api/migrations/008_fix_sync_conflict_constraints.sql, then retry the sync.'
+        )
+    }
+
+    return new Error(
+        `Database schema is missing the unique constraint required for ${table} ON CONFLICT (${conflict}). Run the latest SQL migrations and retry.`
+    )
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const toDateStr = (date) => date.toISOString().split('T')[0]
@@ -18,8 +34,9 @@ const upsertChunked = async (supabase, table, payload, conflict, opts = {}) => {
             .from(table)
             .upsert(payload.slice(i, i + CHUNK_SIZE), { onConflict: conflict, ...opts })
         if (error && !opts.ignoreDuplicates) {
-            console.error(`[Sync] Upsert failed on table "${table}" (conflict: ${conflict}):`, error.message)
-            throw error
+            const normalizedError = buildConflictHint(table, conflict, error)
+            console.error(`[Sync] Upsert failed on table "${table}" (conflict: ${conflict}):`, normalizedError.message)
+            throw normalizedError
         }
     }
 }
